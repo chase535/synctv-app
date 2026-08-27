@@ -1,0 +1,62 @@
+name: Web playback finalize
+
+on:
+  push:
+    branches: ["feat/iqiyi-tencent-watch-together"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: web-playback-finalize-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: "3.44.8"
+  RUST_VERSION: "1.97.1"
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@3d3c42e5aac5ba80582576410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true
+          ref: feat/iqiyi-tencent-watch-together
+
+      - name: Set up build toolchain
+        uses: ./.github/actions/setup-build
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          rust-version: ${{ env.RUST_VERSION }}
+
+      - name: Apply guarded web playback integration
+        run: python3 tool/ci/finalize_web_playback.py
+
+      - name: Format Dart sources
+        run: dart format lib test tool packages
+
+      - name: Check patch hygiene
+        run: git diff --check
+
+      - name: Analyze Dart and Flutter code
+        run: dart analyze --fatal-infos
+
+      - name: Run Flutter tests
+        run: flutter test
+
+      - name: Commit verified generated integration
+        run: |
+          if git diff --quiet --exit-code; then
+            echo "No changes produced by guarded integration."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib test tool
+          git commit -m "feat(room): integrate official web playback"
+          git push origin HEAD:feat/iqiyi-tencent-watch-together
