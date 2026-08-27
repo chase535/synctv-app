@@ -1,3 +1,5 @@
+// ignore_for_file: prefer_initializing_formals
+
 import 'dart:async';
 import 'dart:math';
 
@@ -81,7 +83,7 @@ void main() {
     expect(pending, isNotNull);
 
     now = now.add(const Duration(seconds: 7));
-    final contentSnapshot = const WebPlaybackSnapshot(
+    const contentSnapshot = WebPlaybackSnapshot(
       ready: true,
       phase: WebPlaybackPhase.content,
       isPlaying: false,
@@ -130,7 +132,10 @@ void main() {
     );
     await _settle();
 
-    expect(session.commands.any((c) => c.type == WebPlaybackCommandType.seek), isTrue);
+    expect(
+      session.commands.any((c) => c.type == WebPlaybackCommandType.seek),
+      isTrue,
+    );
     expect(session.commands.last.type, WebPlaybackCommandType.play);
     await coordinator.close();
   });

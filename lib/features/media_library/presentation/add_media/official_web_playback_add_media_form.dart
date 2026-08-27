@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:synctv_app/contracts/synctv_api_types.dart';
+import 'package:synctv_app/contracts/discovered_source.dart';
 import 'package:synctv_app/core/presentation/notifications/app_notifications.dart';
 import 'package:synctv_app/features/providers/presentation/provider_gateway_scope.dart';
 import 'package:synctv_app/features/room/domain/web_playback_adapter_registry.dart';
