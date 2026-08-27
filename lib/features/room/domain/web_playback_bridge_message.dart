@@ -13,7 +13,7 @@ enum WebPlaybackBridgeEventType {
   error,
 }
 
-enum WebPlaybackBridgeEventSource { page, command }
+enum WebPlaybackBridgeEventSource { page, user, command }
 
 final class WebPlaybackBridgeMessage {
   const WebPlaybackBridgeMessage({
@@ -65,6 +65,16 @@ final class WebPlaybackBridgeMessage {
       if (source == WebPlaybackBridgeEventSource.command && commandId == null) {
         return null;
       }
+      if (source != WebPlaybackBridgeEventSource.command && commandId != null) {
+        return null;
+      }
+      if (source == WebPlaybackBridgeEventSource.user && !_isControlType(type)) {
+        return null;
+      }
+      if (source == WebPlaybackBridgeEventSource.command &&
+          !_isCommandEventType(type)) {
+        return null;
+      }
 
       final positionSeconds = _parseOptionalFiniteDouble(
         decoded['position'],
@@ -100,6 +110,9 @@ final class WebPlaybackBridgeMessage {
       if (type == WebPlaybackBridgeEventType.rate && playbackRate == null) {
         return null;
       }
+      if (type == WebPlaybackBridgeEventType.error && errorMessage == null) {
+        return null;
+      }
 
       return WebPlaybackBridgeMessage(
         type: type,
@@ -114,6 +127,17 @@ final class WebPlaybackBridgeMessage {
       return null;
     }
   }
+
+  static bool _isControlType(WebPlaybackBridgeEventType type) => switch (type) {
+    WebPlaybackBridgeEventType.play ||
+    WebPlaybackBridgeEventType.pause ||
+    WebPlaybackBridgeEventType.seek ||
+    WebPlaybackBridgeEventType.rate => true,
+    _ => false,
+  };
+
+  static bool _isCommandEventType(WebPlaybackBridgeEventType type) =>
+      _isControlType(type) || type == WebPlaybackBridgeEventType.error;
 
   static WebPlaybackBridgeEventType? _parseType(Object? value) => switch (value) {
     'ready' => WebPlaybackBridgeEventType.ready,
@@ -130,6 +154,7 @@ final class WebPlaybackBridgeMessage {
   static WebPlaybackBridgeEventSource? _parseSource(Object? value) =>
       switch (value) {
         null || 'page' => WebPlaybackBridgeEventSource.page,
+        'user' => WebPlaybackBridgeEventSource.user,
         'command' => WebPlaybackBridgeEventSource.command,
         _ => null,
       };

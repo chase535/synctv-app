@@ -24,6 +24,19 @@ void main() {
       expect(message.positionSeconds, 92.5);
     });
 
+    test('decodes explicit user control events', () {
+      final message = WebPlaybackBridgeMessage.tryDecode(
+        jsonEncode({
+          'version': 1,
+          'type': 'pause',
+          'source': 'user',
+        }),
+      );
+
+      expect(message?.source, WebPlaybackBridgeEventSource.user);
+      expect(message?.type, WebPlaybackBridgeEventType.pause);
+    });
+
     test('decodes playback phase events', () {
       final message = WebPlaybackBridgeMessage.tryDecode(
         jsonEncode({
@@ -69,6 +82,54 @@ void main() {
           }),
         ),
         isNull,
+      );
+    });
+
+    test('rejects command ids on page and user events', () {
+      for (final source in ['page', 'user']) {
+        expect(
+          WebPlaybackBridgeMessage.tryDecode(
+            jsonEncode({
+              'version': 1,
+              'type': 'pause',
+              'source': source,
+              'commandId': 'spoofed',
+            }),
+          ),
+          isNull,
+        );
+      }
+    });
+
+    test('restricts user source to playback controls', () {
+      expect(
+        WebPlaybackBridgeMessage.tryDecode(
+          jsonEncode({
+            'version': 1,
+            'type': 'ready',
+            'source': 'user',
+          }),
+        ),
+        isNull,
+      );
+    });
+
+    test('requires a bounded error message for errors', () {
+      expect(
+        WebPlaybackBridgeMessage.tryDecode(
+          jsonEncode({'version': 1, 'type': 'error'}),
+        ),
+        isNull,
+      );
+      expect(
+        WebPlaybackBridgeMessage.tryDecode(
+          jsonEncode({
+            'version': 1,
+            'type': 'error',
+            'error': 'player unavailable',
+          }),
+        ),
+        isNotNull,
       );
     });
 
