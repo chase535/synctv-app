@@ -34,6 +34,42 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           rust-version: ${{ env.RUST_VERSION }}
 
+      - name: Refine guarded patch anchor
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('tool/ci/finalize_web_playback.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''replace_once(
+              add_media,
+              "      20 => 'tiktok',\\n      _ => null,\\n",
+              "      20 => 'tiktok',\\n"
+              "      21 || 22 => 'directUrl',\\n"
+              "      _ => null,\\n",
+          )'''
+          new = '''replace_once(
+              add_media,
+              "      18 => 'youtube',\\n"
+              "      19 => 'douyin',\\n"
+              "      20 => 'tiktok',\\n"
+              "      _ => null,\\n"
+              "    };\\n"
+              "  }\\n\\n"
+              "  void _applyDefaultProviderBindings()",
+              "      18 => 'youtube',\\n"
+              "      19 => 'douyin',\\n"
+              "      20 => 'tiktok',\\n"
+              "      21 || 22 => 'directUrl',\\n"
+              "      _ => null,\\n"
+              "    };\\n"
+              "  }\\n\\n"
+              "  void _applyDefaultProviderBindings()",
+          )'''
+          if text.count(old) != 1:
+              raise SystemExit(f'patcher anchor refinement expected once, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
       - name: Apply guarded web playback integration
         run: python3 tool/ci/finalize_web_playback.py
 
