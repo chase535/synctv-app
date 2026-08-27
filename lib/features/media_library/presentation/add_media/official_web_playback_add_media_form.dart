@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:synctv_app/contracts/discovered_source.dart';
 import 'package:synctv_app/core/presentation/notifications/app_notifications.dart';
+import 'package:synctv_app/core/presentation/widgets/app_form_controls.dart';
 import 'package:synctv_app/features/providers/presentation/provider_gateway_scope.dart';
 import 'package:synctv_app/features/room/domain/web_playback_adapter_registry.dart';
 import 'package:synctv_app/features/room/domain/web_playback_site.dart';
@@ -128,31 +129,28 @@ class _OfficialWebPlaybackAddMediaFormState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextField(
+        AppTextField(
           key: ValueKey('${widget.provider.name}-official-url'),
           controller: _urlController,
+          label: '$_providerName 官方播放页',
+          hintText: _urlHint,
+          prefixIcon: Icons.language_rounded,
           enabled: !_loading,
           keyboardType: TextInputType.url,
           textInputAction: TextInputAction.next,
           autocorrect: false,
+          enableSuggestions: false,
           smartDashesType: SmartDashesType.disabled,
           smartQuotesType: SmartQuotesType.disabled,
-          decoration: InputDecoration(
-            labelText: '$_providerName 官方播放页',
-            hintText: _urlHint,
-            prefixIcon: const Icon(Icons.language_rounded),
-          ),
           onChanged: (_) => _changed(),
         ),
         const SizedBox(height: 12),
-        TextField(
+        AppTextField(
           controller: _nameController,
+          label: '名称（可选）',
+          prefixIcon: Icons.title_rounded,
           enabled: !_loading,
           textInputAction: TextInputAction.done,
-          decoration: const InputDecoration(
-            labelText: '名称（可选）',
-            prefixIcon: Icon(Icons.title_rounded),
-          ),
           onChanged: (_) => _changed(),
           onSubmitted: (_) {
             if (valid && !_loading) _submit();
@@ -183,16 +181,12 @@ class _OfficialWebPlaybackAddMediaFormState
         const Spacer(),
         Align(
           alignment: Alignment.centerRight,
-          child: FilledButton.icon(
+          child: AppActionButton(
             key: ValueKey('${widget.provider.name}-official-submit'),
-            onPressed: _loading || !valid ? null : _submit,
-            icon: _loading
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.playlist_add_rounded),
-            label: Text('添加 $_providerName'),
+            onPressed: valid ? _submit : null,
+            loading: _loading,
+            icon: Icons.playlist_add_rounded,
+            label: '添加 $_providerName',
           ),
         ),
       ],

@@ -30,6 +30,7 @@ import 'package:synctv_app/features/room/application/room_playback_gateway.dart'
 import 'package:synctv_app/features/room/application/playback_mode_preferences_controller.dart';
 import 'package:synctv_app/features/room/application/room_session_gateway.dart';
 import 'package:synctv_app/features/room/application/room_management_gateway.dart';
+import 'package:synctv_app/features/room/application/web_playback_client.dart';
 import 'package:synctv_app/features/server_settings/application/server_connection_gateway.dart';
 import 'package:synctv_app/features/voice/application/voice_chat_session.dart';
 
@@ -64,6 +65,7 @@ final class AppDependencies {
     required this.playbackModePreferences,
     required this.roomSessionGateway,
     required this.roomManagementGateway,
+    required this.webPlaybackClient,
     required this.serverConnectionGateway,
     required this.voiceChatSessionFactory,
   });
@@ -97,6 +99,7 @@ final class AppDependencies {
   final PlaybackModePreferencesController playbackModePreferences;
   final RoomSessionGateway roomSessionGateway;
   final RoomManagementGateway roomManagementGateway;
+  final WebPlaybackClient webPlaybackClient;
   final ServerConnectionGateway serverConnectionGateway;
   final VoiceChatSessionFactory voiceChatSessionFactory;
 
@@ -140,6 +143,7 @@ final class AppDependencies {
         RoomManagementGateway: roomManagementGateway,
         RoomPlaybackGateway: roomPlaybackGateway,
         RoomSessionGateway: roomSessionGateway,
+        WebPlaybackClient: webPlaybackClient,
         ServerConnectionGateway: serverConnectionGateway,
         VoiceChatSessionFactory: voiceChatSessionFactory,
       },

@@ -34,6 +34,7 @@ import 'package:synctv_app/features/room/data/shared_preferences_player_volume_s
 import 'package:synctv_app/features/room/data/shared_preferences_playback_overlay_store.dart';
 import 'package:synctv_app/features/room/data/synctv_room_session_gateway.dart';
 import 'package:synctv_app/features/room/data/synctv_room_management_gateway.dart';
+import 'package:synctv_app/features/room/infrastructure/desktop_web_playback_client.dart';
 import 'package:synctv_app/features/app_shell/data/synctv_resource_url_resolver.dart';
 import 'package:synctv_app/features/home/data/synctv_home_gateway.dart';
 import 'package:synctv_app/features/media_p2p/application/p2p_media_preferences_controller.dart';
@@ -124,6 +125,7 @@ void main(List<String> args) async {
     playbackModePreferences: playbackModePreferences,
     roomSessionGateway: roomSessionGateway,
     roomManagementGateway: const SyncTvRoomManagementGateway(),
+    webPlaybackClient: const NativeDesktopWebPlaybackClient(),
     serverConnectionGateway: const SyncTvServerConnectionGateway(),
     voiceChatSessionFactory: const NativeVoiceChatSessionFactory(),
   );
