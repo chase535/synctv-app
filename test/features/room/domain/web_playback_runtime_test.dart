@@ -99,35 +99,34 @@ void main() {
       expect(automaticPause?.localIntent, isNull);
     });
 
-    test('recognizes command acknowledgements without creating local intents', () {
-      final runtime = WebPlaybackRuntime();
-      runtime.rememberCommand(WebPlaybackCommand.pause('remote-pause'));
+    test(
+      'recognizes command acknowledgements without creating local intents',
+      () {
+        final runtime = WebPlaybackRuntime();
+        runtime.rememberCommand(WebPlaybackCommand.pause('remote-pause'));
 
-      final update = runtime.handleRawMessage(
-        jsonEncode({
-          'version': 1,
-          'type': 'pause',
-          'source': 'command',
-          'commandId': 'remote-pause',
-          'position': 30,
-        }),
-      );
+        final update = runtime.handleRawMessage(
+          jsonEncode({
+            'version': 1,
+            'type': 'pause',
+            'source': 'command',
+            'commandId': 'remote-pause',
+            'position': 30,
+          }),
+        );
 
-      expect(update?.commandAcknowledged, isTrue);
-      expect(update?.localIntent, isNull);
-      expect(update?.snapshot.isPlaying, isFalse);
-      expect(update?.snapshot.positionSeconds, 30);
-    });
+        expect(update?.commandAcknowledged, isTrue);
+        expect(update?.localIntent, isNull);
+        expect(update?.snapshot.isPlaying, isFalse);
+        expect(update?.snapshot.positionSeconds, 30);
+      },
+    );
 
     test('navigation reset clears pending commands and playback state', () {
       final runtime = WebPlaybackRuntime();
       runtime.rememberCommand(WebPlaybackCommand.play('stale-play'));
       runtime.handleRawMessage(
-        jsonEncode({
-          'version': 1,
-          'type': 'ready',
-          'source': 'page',
-        }),
+        jsonEncode({'version': 1, 'type': 'ready', 'source': 'page'}),
       );
 
       runtime.resetForNavigation();

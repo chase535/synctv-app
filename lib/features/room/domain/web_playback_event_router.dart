@@ -50,10 +50,7 @@ final class WebPlaybackEventRouter {
   }) {
     if (message.source == WebPlaybackBridgeEventSource.command) {
       if (!_commandTracker.acknowledge(message, now: now)) return null;
-      return WebPlaybackEventRoute(
-        message: message,
-        commandAcknowledged: true,
-      );
+      return WebPlaybackEventRoute(message: message, commandAcknowledged: true);
     }
 
     if (message.source == WebPlaybackBridgeEventSource.user) {

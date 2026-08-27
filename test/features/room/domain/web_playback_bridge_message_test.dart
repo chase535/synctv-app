@@ -26,11 +26,7 @@ void main() {
 
     test('decodes explicit user control events', () {
       final message = WebPlaybackBridgeMessage.tryDecode(
-        jsonEncode({
-          'version': 1,
-          'type': 'pause',
-          'source': 'user',
-        }),
+        jsonEncode({'version': 1, 'type': 'pause', 'source': 'user'}),
       );
 
       expect(message?.source, WebPlaybackBridgeEventSource.user);
@@ -75,11 +71,7 @@ void main() {
     test('requires command ids for command-sourced events', () {
       expect(
         WebPlaybackBridgeMessage.tryDecode(
-          jsonEncode({
-            'version': 1,
-            'type': 'pause',
-            'source': 'command',
-          }),
+          jsonEncode({'version': 1, 'type': 'pause', 'source': 'command'}),
         ),
         isNull,
       );
@@ -104,11 +96,7 @@ void main() {
     test('restricts user source to playback controls', () {
       expect(
         WebPlaybackBridgeMessage.tryDecode(
-          jsonEncode({
-            'version': 1,
-            'type': 'ready',
-            'source': 'user',
-          }),
+          jsonEncode({'version': 1, 'type': 'ready', 'source': 'user'}),
         ),
         isNull,
       );

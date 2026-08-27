@@ -53,7 +53,8 @@ final class WebPlaybackCommandTracker {
     final pending = _pending[message.commandId];
     if (pending == null) return false;
 
-    final matches = message.type == WebPlaybackBridgeEventType.error ||
+    final matches =
+        message.type == WebPlaybackBridgeEventType.error ||
         _matches(pending.type, message.type);
     if (!matches) return false;
 
@@ -76,17 +77,13 @@ final class WebPlaybackCommandTracker {
   bool _matches(
     WebPlaybackCommandType commandType,
     WebPlaybackBridgeEventType eventType,
-  ) =>
-      switch (commandType) {
-        WebPlaybackCommandType.play =>
-          eventType == WebPlaybackBridgeEventType.play,
-        WebPlaybackCommandType.pause =>
-          eventType == WebPlaybackBridgeEventType.pause,
-        WebPlaybackCommandType.seek =>
-          eventType == WebPlaybackBridgeEventType.seek,
-        WebPlaybackCommandType.rate =>
-          eventType == WebPlaybackBridgeEventType.rate,
-      };
+  ) => switch (commandType) {
+    WebPlaybackCommandType.play => eventType == WebPlaybackBridgeEventType.play,
+    WebPlaybackCommandType.pause =>
+      eventType == WebPlaybackBridgeEventType.pause,
+    WebPlaybackCommandType.seek => eventType == WebPlaybackBridgeEventType.seek,
+    WebPlaybackCommandType.rate => eventType == WebPlaybackBridgeEventType.rate,
+  };
 }
 
 final class _PendingWebPlaybackCommand {

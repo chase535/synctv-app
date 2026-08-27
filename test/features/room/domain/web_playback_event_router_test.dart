@@ -28,11 +28,7 @@ void main() {
       final router = WebPlaybackEventRouter();
 
       final route = router.routeRaw(
-        jsonEncode({
-          'version': 1,
-          'type': 'pause',
-          'source': 'page',
-        }),
+        jsonEncode({'version': 1, 'type': 'pause', 'source': 'page'}),
       );
 
       expect(route, isNotNull);

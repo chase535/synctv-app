@@ -28,9 +28,7 @@ void main() {
 
     test('resolves Tencent Video media without accepting other qq hosts', () {
       final adapter = WebPlaybackAdapterRegistry.standard.forMediaUri(
-        Uri.parse(
-          'https://v.qq.com/x/cover/nhtfh14i9y1egge/d00249ld45q.html',
-        ),
+        Uri.parse('https://v.qq.com/x/cover/nhtfh14i9y1egge/d00249ld45q.html'),
       );
 
       expect(adapter?.provider, WebPlaybackProvider.tencentVideo);
@@ -88,12 +86,15 @@ void main() {
       );
     });
 
-    test('about blank is allowed only as unprivileged main-frame bootstrap', () {
-      expect(
-        iqiyi.classifyNavigation(Uri.parse('about:blank'), isMainFrame: true),
-        WebPlaybackNavigationDisposition.allowUnprivileged,
-      );
-    });
+    test(
+      'about blank is allowed only as unprivileged main-frame bootstrap',
+      () {
+        expect(
+          iqiyi.classifyNavigation(Uri.parse('about:blank'), isMainFrame: true),
+          WebPlaybackNavigationDisposition.allowUnprivileged,
+        );
+      },
+    );
   });
 
   test('phase detector is provider-agnostic and geometry-aware', () {

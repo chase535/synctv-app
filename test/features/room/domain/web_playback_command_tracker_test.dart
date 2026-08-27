@@ -57,9 +57,7 @@ void main() {
 
     test('constructor rejects invalid retention and capacity', () {
       expect(
-        () => WebPlaybackCommandTracker(
-          retention: const Duration(seconds: -1),
-        ),
+        () => WebPlaybackCommandTracker(retention: const Duration(seconds: -1)),
         throwsArgumentError,
       );
       expect(

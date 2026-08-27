@@ -43,7 +43,8 @@ final class WebPlaybackBridgeMessage {
   final String? errorMessage;
 
   static WebPlaybackBridgeMessage? tryDecode(String raw) {
-    if (raw.length > maxEncodedBytes || utf8.encode(raw).length > maxEncodedBytes) {
+    if (raw.length > maxEncodedBytes ||
+        utf8.encode(raw).length > maxEncodedBytes) {
       return null;
     }
 
@@ -68,7 +69,8 @@ final class WebPlaybackBridgeMessage {
       if (source != WebPlaybackBridgeEventSource.command && commandId != null) {
         return null;
       }
-      if (source == WebPlaybackBridgeEventSource.user && !_isControlType(type)) {
+      if (source == WebPlaybackBridgeEventSource.user &&
+          !_isControlType(type)) {
         return null;
       }
       if (source == WebPlaybackBridgeEventSource.command &&
@@ -103,7 +105,9 @@ final class WebPlaybackBridgeMessage {
       );
       if (decoded.containsKey('error') && errorMessage == null) return null;
 
-      if (type == WebPlaybackBridgeEventType.phase && phase == null) return null;
+      if (type == WebPlaybackBridgeEventType.phase && phase == null) {
+        return null;
+      }
       if (type == WebPlaybackBridgeEventType.seek && positionSeconds == null) {
         return null;
       }
@@ -139,17 +143,18 @@ final class WebPlaybackBridgeMessage {
   static bool _isCommandEventType(WebPlaybackBridgeEventType type) =>
       _isControlType(type) || type == WebPlaybackBridgeEventType.error;
 
-  static WebPlaybackBridgeEventType? _parseType(Object? value) => switch (value) {
-    'ready' => WebPlaybackBridgeEventType.ready,
-    'phase' => WebPlaybackBridgeEventType.phase,
-    'play' => WebPlaybackBridgeEventType.play,
-    'pause' => WebPlaybackBridgeEventType.pause,
-    'seek' => WebPlaybackBridgeEventType.seek,
-    'rate' => WebPlaybackBridgeEventType.rate,
-    'ended' => WebPlaybackBridgeEventType.ended,
-    'error' => WebPlaybackBridgeEventType.error,
-    _ => null,
-  };
+  static WebPlaybackBridgeEventType? _parseType(Object? value) =>
+      switch (value) {
+        'ready' => WebPlaybackBridgeEventType.ready,
+        'phase' => WebPlaybackBridgeEventType.phase,
+        'play' => WebPlaybackBridgeEventType.play,
+        'pause' => WebPlaybackBridgeEventType.pause,
+        'seek' => WebPlaybackBridgeEventType.seek,
+        'rate' => WebPlaybackBridgeEventType.rate,
+        'ended' => WebPlaybackBridgeEventType.ended,
+        'error' => WebPlaybackBridgeEventType.error,
+        _ => null,
+      };
 
   static WebPlaybackBridgeEventSource? _parseSource(Object? value) =>
       switch (value) {

@@ -1,11 +1,6 @@
 import 'package:synctv_app/features/room/domain/web_playback_site.dart';
 
-enum WebPlaybackMediaKind {
-  iqiyiVideo,
-  iqiyiAlbum,
-  tencentCover,
-  tencentVideo,
-}
+enum WebPlaybackMediaKind { iqiyiVideo, iqiyiAlbum, tencentCover, tencentVideo }
 
 final class WebPlaybackMediaIdentity {
   const WebPlaybackMediaIdentity({
@@ -93,9 +88,7 @@ final class WebPlaybackMediaIdentity {
       );
     }
 
-    final page = RegExp(
-      r'^/x/page/([A-Za-z0-9]+)\.html$',
-    ).firstMatch(uri.path);
+    final page = RegExp(r'^/x/page/([A-Za-z0-9]+)\.html$').firstMatch(uri.path);
     if (page != null) {
       return WebPlaybackMediaIdentity(
         provider: WebPlaybackProvider.tencentVideo,

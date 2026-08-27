@@ -25,11 +25,11 @@ final class WebPlaybackCommand {
     if (seconds < 0 ||
         !seconds.isFinite ||
         seconds > WebPlaybackBridgeMessage.maxPositionSeconds) {
-      throw RangeError.range(
+      throw RangeError.value(
         seconds,
-        0,
-        WebPlaybackBridgeMessage.maxPositionSeconds,
         'position',
+        'Position must be between 0 and '
+            '${WebPlaybackBridgeMessage.maxPositionSeconds} seconds',
       );
     }
     return WebPlaybackCommand._(
@@ -43,11 +43,12 @@ final class WebPlaybackCommand {
     if (!playbackRate.isFinite ||
         playbackRate < WebPlaybackBridgeMessage.minPlaybackRate ||
         playbackRate > WebPlaybackBridgeMessage.maxPlaybackRate) {
-      throw RangeError.range(
+      throw RangeError.value(
         playbackRate,
-        WebPlaybackBridgeMessage.minPlaybackRate,
-        WebPlaybackBridgeMessage.maxPlaybackRate,
         'playbackRate',
+        'Playback rate must be between '
+            '${WebPlaybackBridgeMessage.minPlaybackRate} and '
+            '${WebPlaybackBridgeMessage.maxPlaybackRate}',
       );
     }
     return WebPlaybackCommand._(
@@ -65,7 +66,7 @@ final class WebPlaybackCommand {
   Map<String, Object> toArguments() => {
     'id': id,
     'type': type.name,
-    if (positionSeconds != null) 'position': positionSeconds!,
-    if (playbackRate != null) 'playbackRate': playbackRate!,
+    'position': ?positionSeconds,
+    'playbackRate': ?playbackRate,
   };
 }
