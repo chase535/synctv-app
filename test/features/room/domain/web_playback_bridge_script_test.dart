@@ -15,8 +15,42 @@ void main() {
         contains("querySelectorAll('iframe')"),
       );
       expect(webPlaybackBridgeBootstrapScript, contains('setPhaseDetector'));
-      expect(webPlaybackBridgeBootstrapScript, contains('pendingCommands.clear()'));
+      expect(
+        webPlaybackBridgeBootstrapScript,
+        contains('pendingCommands.clear()'),
+      );
       expect(webPlaybackBridgeBootstrapScript, contains('existing.start()'));
+    });
+
+    test('limits the privileged bridge to top-level official origins', () {
+      expect(
+        webPlaybackBridgeBootstrapScript,
+        contains("'https://www.iqiyi.com'"),
+      );
+      expect(
+        webPlaybackBridgeBootstrapScript,
+        contains("'https://v.qq.com'"),
+      );
+      expect(
+        webPlaybackBridgeBootstrapScript,
+        contains('window.top !== window.self'),
+      );
+      expect(
+        webPlaybackBridgeBootstrapScript,
+        contains('PRIVILEGED_ORIGINS.has(window.location.origin)'),
+      );
+    });
+
+    test('does not publish ended when the active phase is an advertisement', () {
+      expect(
+        webPlaybackBridgeBootstrapScript,
+        contains("phase !== 'content'"),
+      );
+      expect(
+        webPlaybackBridgeBootstrapScript,
+        contains("phase !== 'buffering'"),
+      );
+      expect(webPlaybackBridgeBootstrapScript, contains("phase !== 'ended'"));
     });
 
     test('serializes command arguments as JSON instead of string interpolation', () {

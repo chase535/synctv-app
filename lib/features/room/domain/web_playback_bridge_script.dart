@@ -3,6 +3,17 @@ import 'dart:convert';
 import 'package:synctv_app/features/room/domain/web_playback_command.dart';
 
 const String webPlaybackBridgeBootstrapScript = r'''(() => {
+  const PRIVILEGED_ORIGINS = new Set([
+    'https://www.iqiyi.com',
+    'https://v.qq.com',
+  ]);
+  if (
+    window.top !== window.self ||
+    !PRIVILEGED_ORIGINS.has(window.location.origin)
+  ) {
+    return;
+  }
+
   const existing = window.__synctvPlaybackBridge;
   if (existing && existing.version === 1) {
     existing.start();
@@ -290,6 +301,13 @@ const String webPlaybackBridgeBootstrapScript = r'''(() => {
       const video = videoForEvent(event);
       if (!video) return;
       updatePhase('ended');
+      if (
+        phase !== 'content' &&
+        phase !== 'buffering' &&
+        phase !== 'ended'
+      ) {
+        return;
+      }
       post({
         type: 'ended',
         source: 'page',

@@ -31,6 +31,7 @@ final class WebPlaybackCommandTracker {
   void remember(WebPlaybackCommand command, {DateTime? now}) {
     final timestamp = now ?? DateTime.now();
     _removeExpired(timestamp);
+    _pending.removeWhere((_, pending) => pending.type == command.type);
     _pending.remove(command.id);
     while (_pending.length >= maxPending) {
       _pending.remove(_pending.keys.first);

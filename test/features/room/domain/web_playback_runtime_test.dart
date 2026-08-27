@@ -31,6 +31,46 @@ void main() {
       expect(update?.releasedSyncTarget, same(target));
     });
 
+    test('ad ended events do not release the content sync target', () {
+      final runtime = WebPlaybackRuntime();
+      final target = WebPlaybackSyncTarget(
+        isPlaying: true,
+        position: const Duration(seconds: 92),
+        playbackRate: 1,
+      );
+      runtime.handleRawMessage(
+        jsonEncode({
+          'version': 1,
+          'type': 'phase',
+          'source': 'page',
+          'phase': 'advertisement',
+        }),
+      );
+      expect(runtime.submitSyncTarget(target), isNull);
+
+      final ended = runtime.handleRawMessage(
+        jsonEncode({
+          'version': 1,
+          'type': 'ended',
+          'source': 'page',
+          'position': 30,
+        }),
+      );
+
+      expect(ended?.snapshot.phase, WebPlaybackPhase.advertisement);
+      expect(ended?.releasedSyncTarget, isNull);
+
+      final content = runtime.handleRawMessage(
+        jsonEncode({
+          'version': 1,
+          'type': 'phase',
+          'source': 'page',
+          'phase': 'content',
+        }),
+      );
+      expect(content?.releasedSyncTarget, same(target));
+    });
+
     test('updates state while reporting only explicit user controls', () {
       final runtime = WebPlaybackRuntime();
 

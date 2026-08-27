@@ -112,7 +112,9 @@ final class WebPlaybackRuntime {
         break;
       case WebPlaybackBridgeEventType.ended:
         isPlaying = false;
-        applyPhase(WebPlaybackPhase.ended);
+        if (phase.hasContentTimeline) {
+          applyPhase(WebPlaybackPhase.ended);
+        }
         break;
       case WebPlaybackBridgeEventType.error:
         errorMessage = message.errorMessage;
