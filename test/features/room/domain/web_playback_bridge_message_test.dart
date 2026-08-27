@@ -75,17 +75,11 @@ void main() {
       });
 
       expect(
-        WebPlaybackBridgeMessage.tryDecode(
-          valid,
-          expectedBridgeToken: token,
-        ),
+        WebPlaybackBridgeMessage.tryDecode(valid, expectedBridgeToken: token),
         isNotNull,
       );
       expect(
-        WebPlaybackBridgeMessage.tryDecode(
-          forged,
-          expectedBridgeToken: token,
-        ),
+        WebPlaybackBridgeMessage.tryDecode(forged, expectedBridgeToken: token),
         isNull,
       );
       expect(

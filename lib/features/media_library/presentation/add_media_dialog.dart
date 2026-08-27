@@ -34,6 +34,8 @@ import 'package:synctv_app/features/media_library/presentation/add_media/provide
 import 'package:synctv_app/features/media_library/presentation/add_media/qnap_add_media_form.dart';
 import 'package:synctv_app/features/media_library/presentation/add_media/seafile_add_media_form.dart';
 import 'package:synctv_app/features/media_library/presentation/add_media/tiktok_add_media_form.dart';
+import 'package:synctv_app/features/media_library/presentation/add_media/official_web_playback_add_media_form.dart';
+import 'package:synctv_app/features/room/domain/web_playback_site.dart';
 import 'package:synctv_app/features/media_library/presentation/add_media/twitch_add_media_form.dart';
 import 'package:synctv_app/features/media_library/presentation/add_media/truenas_add_media_form.dart';
 import 'package:synctv_app/features/media_library/presentation/add_media/youtube_add_media_form.dart';
@@ -312,6 +314,8 @@ class _AddMediaDialogState extends State<AddMediaDialog> {
   bool _douyinHasDraft = false;
   List<TikTokBindInfo> _tiktokBinds = [];
   bool _tiktokHasDraft = false;
+  bool _iqiyiHasDraft = false;
+  bool _tencentVideoHasDraft = false;
   List<String> _huyaInstances = const [''];
   bool _huyaHasDraft = false;
   List<String> _douyuInstances = const [''];
@@ -711,6 +715,10 @@ class _AddMediaDialogState extends State<AddMediaDialog> {
         return 'Douyin';
       case 20:
         return 'TikTok';
+      case 21:
+        return '爱奇艺';
+      case 22:
+        return '腾讯视频';
       default:
         return '';
     }
@@ -865,10 +873,26 @@ class _AddMediaDialogState extends State<AddMediaDialog> {
               icon: Icons.music_video_rounded,
               color: Color(0xFFFE2C55),
             ),
+            const _MediaSourceSpec(
+              index: 21,
+              title: '爱奇艺',
+              subtitle: 'Official webpage / synchronized playback',
+              icon: Icons.play_circle_outline_rounded,
+              color: Color(0xFF00BE06),
+            ),
+            const _MediaSourceSpec(
+              index: 22,
+              title: '腾讯视频',
+              subtitle: 'Official webpage / synchronized playback',
+              icon: Icons.play_circle_outline_rounded,
+              color: Color(0xFF1AAD19),
+            ),
           ]
           .map((spec) {
             final providerType = _providerTypeForSourceIndex(spec.index);
-            if (providerType == null) return spec;
+            if (providerType == null || spec.index == 21 || spec.index == 22) {
+              return spec;
+            }
             final brand = mediaProviderBrand(providerType);
             return _MediaSourceSpec(
               index: spec.index,
@@ -1374,6 +1398,20 @@ class _AddMediaDialogState extends State<AddMediaDialog> {
           playlistId: widget.parentId ?? '',
           binds: _tiktokBinds,
           onDraftChanged: (value) => _tiktokHasDraft = value,
+        );
+      case 21:
+        return OfficialWebPlaybackAddMediaForm(
+          roomId: widget.roomId,
+          playlistId: widget.parentId ?? '',
+          provider: WebPlaybackProvider.iqiyi,
+          onDraftChanged: (value) => _iqiyiHasDraft = value,
+        );
+      case 22:
+        return OfficialWebPlaybackAddMediaForm(
+          roomId: widget.roomId,
+          playlistId: widget.parentId ?? '',
+          provider: WebPlaybackProvider.tencentVideo,
+          onDraftChanged: (value) => _tencentVideoHasDraft = value,
         );
       default:
         return const SizedBox();
@@ -3238,6 +3276,7 @@ class _AddMediaDialogState extends State<AddMediaDialog> {
       18 => 'youtube',
       19 => 'douyin',
       20 => 'tiktok',
+      21 || 22 => 'directUrl',
       _ => null,
     };
   }
@@ -3416,7 +3455,9 @@ class _AddMediaDialogState extends State<AddMediaDialog> {
         _trueNasHasDraft ||
         _youtubeHasDraft ||
         _douyinHasDraft ||
-        _tiktokHasDraft) {
+        _tiktokHasDraft ||
+        _iqiyiHasDraft ||
+        _tencentVideoHasDraft) {
       return true;
     }
     return _directHeaders.any(

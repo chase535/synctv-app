@@ -84,10 +84,21 @@ replace_once(
 )
 replace_once(
     add_media,
-    "      20 => 'tiktok',\n      _ => null,\n",
+    "      18 => 'youtube',\n"
+    "      19 => 'douyin',\n"
+    "      20 => 'tiktok',\n"
+    "      _ => null,\n"
+    "    };\n"
+    "  }\n\n"
+    "  void _applyDefaultProviderBindings()",
+    "      18 => 'youtube',\n"
+    "      19 => 'douyin',\n"
     "      20 => 'tiktok',\n"
     "      21 || 22 => 'directUrl',\n"
-    "      _ => null,\n",
+    "      _ => null,\n"
+    "    };\n"
+    "  }\n\n"
+    "  void _applyDefaultProviderBindings()",
 )
 
 # WebView2 ExecuteScript does not await JS Promises. Keep command acceptance synchronous

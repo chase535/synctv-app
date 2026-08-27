@@ -652,7 +652,7 @@ const String webPlaybackBridgeBootstrapScript = r'''(() => {
     );
   }
 
-  async function command(input) {
+  function command(input) {
     if (!input || typeof input !== 'object') return false;
     const commandId = input.id;
     const type = input.type;
@@ -679,7 +679,16 @@ const String webPlaybackBridgeBootstrapScript = r'''(() => {
     try {
       if (type === 'play') {
         rememberCommand('play', commandId);
-        await video.play();
+        const playResult = video.play();
+        if (playResult && typeof playResult.catch === 'function') {
+          playResult.catch((error) => {
+            const pending = pendingCommands.get('play');
+            if (pending && pending.id === commandId) {
+              pendingCommands.delete('play');
+            }
+            emitCommandError(commandId, error);
+          });
+        }
         setTimeout(() => {
           acknowledgeIfPending('play', commandId, {
             position: finiteNumber(video.currentTime)

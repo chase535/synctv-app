@@ -27,8 +27,5 @@ abstract interface class WebPlaybackSession {
 abstract interface class WebPlaybackClient {
   bool get supported;
 
-  Future<WebPlaybackSession> open({
-    required Uri uri,
-    required String title,
-  });
+  Future<WebPlaybackSession> open({required Uri uri, required String title});
 }

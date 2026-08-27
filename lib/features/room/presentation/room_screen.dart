@@ -40,6 +40,15 @@ import 'package:synctv_app/features/room/application/room_chat_gateway.dart';
 import 'package:synctv_app/features/room/application/chat_read_state_updater.dart';
 import 'package:synctv_app/features/room/application/room_playback_gateway.dart';
 import 'package:synctv_app/features/room/application/room_playback_controller.dart';
+import 'package:synctv_app/features/room/application/web_playback_client.dart';
+import 'package:synctv_app/features/room/application/web_playback_coordinator.dart';
+import 'package:synctv_app/features/room/domain/web_playback_adapter_registry.dart';
+import 'package:synctv_app/features/room/domain/web_playback_bridge_message.dart';
+import 'package:synctv_app/features/room/domain/web_playback_event_router.dart';
+import 'package:synctv_app/features/room/domain/web_playback_phase.dart';
+import 'package:synctv_app/features/room/domain/web_playback_runtime.dart';
+import 'package:synctv_app/features/room/domain/web_playback_site.dart';
+import 'package:synctv_app/features/room/domain/web_playback_sync_gate.dart';
 import 'package:synctv_app/features/room/application/playback_mode_preferences_controller.dart';
 import 'package:synctv_app/features/room/application/room_session_gateway.dart';
 import 'package:synctv_app/features/room/application/room_management_gateway.dart';
@@ -408,6 +417,17 @@ class _RoomScreenState extends State<RoomScreen>
   final ValueNotifier<int> _videoPresentationRevision = ValueNotifier<int>(0);
   String? _videoError;
   String? _roomSessionError;
+  late final WebPlaybackClient _webPlaybackClient;
+  WebPlaybackSession? _webPlaybackSession;
+  WebPlaybackCoordinator? _webPlaybackCoordinator;
+  StreamSubscription<WebPlaybackRuntimeUpdate>? _webPlaybackUpdatesSubscription;
+  Uri? _webPlaybackUri;
+  WebPlaybackProvider? _webPlaybackProvider;
+  WebPlaybackSnapshot? _webPlaybackSnapshot;
+  String? _webPlaybackError;
+  bool _webPlaybackOpening = false;
+  bool _webPlaybackAutoOpenSuppressed = false;
+  int _webPlaybackGeneration = 0;
 
   // Pagination
   int _currentPage = 1;
@@ -586,6 +606,7 @@ class _RoomScreenState extends State<RoomScreen>
           _chatGateway.markRead(widget.room.roomId, messageId),
     );
     _playbackGateway = DependencyScope.read<RoomPlaybackGateway>(context);
+    _webPlaybackClient = DependencyScope.read<WebPlaybackClient>(context);
     _playbackController = RoomPlaybackController();
     _playbackModePreferences =
         DependencyScope.read<PlaybackModePreferencesController>(context);
@@ -1144,6 +1165,7 @@ class _RoomScreenState extends State<RoomScreen>
   Future<void> _handleRoomSessionClosed(String message) async {
     _reconnectTimer?.cancel();
     await _disposeVideoController();
+    await _disposeWebPlayback();
     await _realtimeSubscription?.cancel();
     _realtimeSubscription = null;
     await _channel?.close();
@@ -2598,6 +2620,351 @@ class _RoomScreenState extends State<RoomScreen>
     );
   }
 
+  Future<void> _applyWebPlaybackStatus(
+    SyncTvPlaybackStatus status,
+    Uri uri, {
+    required bool applySync,
+  }) async {
+    final adapter = WebPlaybackAdapterRegistry.standard.forMediaUri(uri);
+    final identity = adapter?.identify(uri);
+    if (adapter == null || identity == null || !identity.isEpisode) return;
+    final canonicalUri = identity.canonicalUri;
+    final provider = adapter.provider;
+    final sameProvider = _webPlaybackProvider == provider;
+    final sameMedia = _webPlaybackUri == canonicalUri;
+
+    if (!_webPlaybackClient.supported) {
+      if (_webPlaybackCoordinator != null || _webPlaybackSession != null) {
+        await _disposeWebPlayback(clearUri: false);
+      }
+      if (!mounted || _isDisposing) return;
+      setState(() {
+        _webPlaybackUri = canonicalUri;
+        _webPlaybackProvider = provider;
+        _webPlaybackSnapshot = null;
+        _webPlaybackOpening = false;
+        _webPlaybackError = '当前平台暂不支持官方网页同步播放器。Windows 客户端需要 WebView2 Runtime。';
+      });
+      return;
+    }
+
+    if (_webPlaybackSession == null &&
+        _webPlaybackAutoOpenSuppressed &&
+        sameProvider &&
+        sameMedia) {
+      return;
+    }
+
+    final existingSession = _webPlaybackSession;
+    final existingCoordinator = _webPlaybackCoordinator;
+    if (existingSession != null &&
+        existingCoordinator != null &&
+        sameProvider) {
+      if (!sameMedia) {
+        _webPlaybackAutoOpenSuppressed = false;
+        await existingSession.navigate(canonicalUri);
+      }
+      _webPlaybackUri = canonicalUri;
+      _webPlaybackProvider = provider;
+      if (applySync) {
+        existingCoordinator.updateAuthoritativeState(
+          _webPlaybackTarget(status),
+        );
+      }
+      if (mounted) {
+        setState(() {
+          _webPlaybackSnapshot = existingSession.snapshot;
+          _webPlaybackError = null;
+        });
+      }
+      return;
+    }
+
+    if (existingSession != null || existingCoordinator != null) {
+      await _disposeWebPlayback(clearUri: false);
+      if (!mounted || _isDisposing) return;
+    }
+
+    final generation = ++_webPlaybackGeneration;
+    _webPlaybackAutoOpenSuppressed = false;
+    setState(() {
+      _webPlaybackUri = canonicalUri;
+      _webPlaybackProvider = provider;
+      _webPlaybackOpening = true;
+      _webPlaybackSnapshot = null;
+      _webPlaybackError = null;
+    });
+
+    try {
+      final providerName = provider == WebPlaybackProvider.iqiyi
+          ? '爱奇艺'
+          : '腾讯视频';
+      final session = await _webPlaybackClient.open(
+        uri: canonicalUri,
+        title: '$providerName · SyncTV',
+      );
+      if (!mounted || _isDisposing || generation != _webPlaybackGeneration) {
+        await session.close();
+        return;
+      }
+
+      _webPlaybackSession = session;
+      _webPlaybackUpdatesSubscription = session.updates.listen(
+        (update) {
+          if (!mounted || !identical(session, _webPlaybackSession)) return;
+          setState(() {
+            _webPlaybackSnapshot = update.snapshot;
+            _webPlaybackError = update.snapshot.errorMessage;
+          });
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          _handleWebPlaybackError(error, stackTrace);
+        },
+      );
+      final coordinator = WebPlaybackCoordinator(
+        session: session,
+        onLocalIntent: _handleWebPlaybackLocalIntent,
+        onError: _handleWebPlaybackError,
+      );
+      _webPlaybackCoordinator = coordinator;
+      unawaited(session.closed.then((_) => _handleWebPlaybackClosed(session)));
+      setState(() {
+        _webPlaybackOpening = false;
+        _webPlaybackSnapshot = session.snapshot;
+      });
+      if (applySync) {
+        coordinator.updateAuthoritativeState(_webPlaybackTarget(status));
+      }
+    } on Object catch (error, stackTrace) {
+      if (!mounted || generation != _webPlaybackGeneration) return;
+      debugPrint('Open official web playback failed: $error\n$stackTrace');
+      setState(() {
+        _webPlaybackOpening = false;
+        _webPlaybackError = error.toString();
+      });
+    }
+  }
+
+  Future<void> _disposeWebPlayback({bool clearUri = true}) async {
+    _webPlaybackGeneration += 1;
+    final subscription = _webPlaybackUpdatesSubscription;
+    final coordinator = _webPlaybackCoordinator;
+    final session = _webPlaybackSession;
+    _webPlaybackUpdatesSubscription = null;
+    _webPlaybackCoordinator = null;
+    _webPlaybackSession = null;
+    if (clearUri) {
+      _webPlaybackUri = null;
+      _webPlaybackProvider = null;
+      _webPlaybackSnapshot = null;
+      _webPlaybackError = null;
+      _webPlaybackAutoOpenSuppressed = false;
+    }
+    await subscription?.cancel();
+    if (coordinator != null) {
+      await coordinator.close();
+    } else {
+      await session?.close();
+    }
+    if (mounted && !_isDisposing) setState(() {});
+  }
+
+  void _handleWebPlaybackClosed(WebPlaybackSession session) {
+    if (!identical(session, _webPlaybackSession)) return;
+    final coordinator = _webPlaybackCoordinator;
+    _webPlaybackSession = null;
+    _webPlaybackCoordinator = null;
+    unawaited(_webPlaybackUpdatesSubscription?.cancel());
+    _webPlaybackUpdatesSubscription = null;
+    _webPlaybackAutoOpenSuppressed = true;
+    if (coordinator != null) unawaited(coordinator.close());
+    if (mounted && !_isDisposing) {
+      setState(() {
+        _webPlaybackOpening = false;
+        _webPlaybackError = '官方网页播放器已关闭，可重新打开。';
+      });
+    }
+  }
+
+  void _handleWebPlaybackError(Object error, StackTrace stackTrace) {
+    debugPrint('Official web playback error: $error\n$stackTrace');
+    if (mounted && !_isDisposing) {
+      setState(() => _webPlaybackError = error.toString());
+    }
+  }
+
+  void _handleWebPlaybackLocalIntent(WebPlaybackLocalIntent intent) {
+    if (!_canControlPlaybackState) return;
+    switch (intent.type) {
+      case WebPlaybackLocalIntentType.play:
+        _handleUserPlaybackStateChanged(true);
+      case WebPlaybackLocalIntentType.pause:
+        _handleUserPlaybackStateChanged(false);
+      case WebPlaybackLocalIntentType.seek:
+        final seconds = intent.positionSeconds;
+        if (seconds != null) {
+          _handleUserSeek(Duration(milliseconds: (seconds * 1000).round()));
+        }
+      case WebPlaybackLocalIntentType.rate:
+        final rate = intent.playbackRate;
+        if (rate != null) _handleUserPlaybackSpeedChanged(rate);
+    }
+  }
+
+  WebPlaybackSyncTarget _webPlaybackTarget(SyncTvPlaybackStatus status) {
+    var positionSeconds = status.derivedCurrentTime(now: SyncedClock.now());
+    if (!positionSeconds.isFinite || positionSeconds < 0) positionSeconds = 0;
+    positionSeconds = positionSeconds
+        .clamp(0.0, WebPlaybackBridgeMessage.maxPositionSeconds)
+        .toDouble();
+    var playbackRate = status.playbackRate;
+    if (!playbackRate.isFinite ||
+        playbackRate < WebPlaybackBridgeMessage.minPlaybackRate ||
+        playbackRate > WebPlaybackBridgeMessage.maxPlaybackRate) {
+      playbackRate = 1;
+    }
+    return WebPlaybackSyncTarget(
+      isPlaying: status.isPlaying,
+      position: Duration(milliseconds: (positionSeconds * 1000).round()),
+      playbackRate: playbackRate,
+    );
+  }
+
+  List<int>? _buildWebPlaybackControlMessage(_PlaybackControlIntent intent) {
+    final status = _currentStatus;
+    if (status == null) return null;
+    final snapshot = _webPlaybackSession?.snapshot ?? _webPlaybackSnapshot;
+    final currentPosition = _boundedPlaybackTime(
+      intent.position?.inMilliseconds.toDouble() == null
+          ? snapshot?.positionSeconds ?? status.currentTime
+          : intent.position!.inMilliseconds / 1000.0,
+    );
+    final isPlaying =
+        intent.isPlaying ?? snapshot?.isPlaying ?? status.isPlaying;
+    final playbackRate =
+        intent.speed ?? snapshot?.playbackRate ?? status.playbackRate;
+    final action = switch (intent.kind) {
+      _PlaybackControlIntentKind.playbackState =>
+        isPlaying ? PlaybackControlAction.play : PlaybackControlAction.pause,
+      _PlaybackControlIntentKind.seek => PlaybackControlAction.seek,
+      _PlaybackControlIntentKind.speed => PlaybackControlAction.speed,
+    };
+    return _realtimeProtocol.encodeGuardedPlaybackStateUpdate(
+      action,
+      status,
+      isPlaying: isPlaying,
+      position: currentPosition,
+      playbackRate: intent.kind == _PlaybackControlIntentKind.speed
+          ? playbackRate
+          : null,
+      clientOperationId: intent.clientOperationId,
+      clientTimeMillis: intent.clientTimeMillis,
+    );
+  }
+
+  SyncTvPlaybackStatus? _optimisticWebPlaybackStatus(
+    _PlaybackControlIntent intent,
+  ) {
+    final status = _currentStatus;
+    if (status == null) return null;
+    final snapshot = _webPlaybackSession?.snapshot ?? _webPlaybackSnapshot;
+    final currentTime = intent.position == null
+        ? snapshot?.positionSeconds ?? status.currentTime
+        : intent.position!.inMilliseconds / 1000.0;
+    return status.copyWith(
+      isPlaying: intent.isPlaying ?? status.isPlaying,
+      currentTime: _boundedPlaybackTime(currentTime),
+      playbackRate:
+          intent.speed ?? snapshot?.playbackRate ?? status.playbackRate,
+      generatedAtMillis: intent.clientTimeMillis,
+      clientOperationId: intent.clientOperationId,
+    );
+  }
+
+  Future<void> _reopenWebPlayback() async {
+    final status = _currentStatus;
+    final rawUri = _webPlaybackUri ?? Uri.tryParse(status?.entry?.url ?? '');
+    if (status == null || rawUri == null) return;
+    _webPlaybackAutoOpenSuppressed = false;
+    await _applyWebPlaybackStatus(status, rawUri, applySync: true);
+  }
+
+  Widget _buildWebPlaybackState() {
+    final providerName = _webPlaybackProvider == WebPlaybackProvider.iqiyi
+        ? '爱奇艺'
+        : '腾讯视频';
+    final snapshot = _webPlaybackSnapshot;
+    final phaseLabel = switch (snapshot?.phase) {
+      WebPlaybackPhase.initializing || null => '正在初始化官方播放器',
+      WebPlaybackPhase.advertisement => switch (snapshot?.advertisementKind) {
+        WebPlaybackAdvertisementKind.preroll => '正在播放片头广告',
+        WebPlaybackAdvertisementKind.midroll => '正在播放中插广告',
+        WebPlaybackAdvertisementKind.pause => '暂停广告中',
+        _ => '广告播放中',
+      },
+      WebPlaybackPhase.overlayAdvertisement => '内容播放中（覆盖广告）',
+      WebPlaybackPhase.content => snapshot?.isPlaying == true ? '播放中' : '已暂停',
+      WebPlaybackPhase.buffering => '缓冲中',
+      WebPlaybackPhase.ended => '已播放结束',
+      WebPlaybackPhase.unsupported => '当前页面播放器暂不可控制',
+    };
+    final session = _webPlaybackSession;
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.open_in_new_rounded,
+              size: 48,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              '$providerName 官方网页同步播放',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(phaseLabel, textAlign: TextAlign.center),
+            if (_webPlaybackError case final error?) ...[
+              const SizedBox(height: 10),
+              Text(
+                error,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: 18),
+            if (_webPlaybackOpening)
+              const AppLoadingIndicator()
+            else
+              FilledButton.icon(
+                onPressed: session != null
+                    ? () => unawaited(session.bringToForeground())
+                    : _webPlaybackClient.supported
+                    ? () => unawaited(_reopenWebPlayback())
+                    : null,
+                icon: Icon(
+                  session == null
+                      ? Icons.refresh_rounded
+                      : Icons.open_in_new_rounded,
+                ),
+                label: Text(session == null ? '重新打开官方播放器' : '切回官方播放器'),
+              ),
+            const SizedBox(height: 12),
+            const Text(
+              '登录和会员状态仅保存在本机官方网页环境中；SyncTV 不读取或同步 Cookie、凭证或 DRM 信息。',
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   double _boundedPlaybackTime(double currentTime) {
     if (!currentTime.isFinite || currentTime < 0) return 0;
     final duration = _videoPlayerController?.value.duration;
@@ -2719,6 +3086,9 @@ class _RoomScreenState extends State<RoomScreen>
   }
 
   List<int>? _buildPlaybackControlMessage(_PlaybackControlIntent intent) {
+    if (_webPlaybackSession != null) {
+      return _buildWebPlaybackControlMessage(intent);
+    }
     final value = _videoPlayerController?.value;
     if (value == null) return null;
     final reporter = _playbackControlReporter();
@@ -2748,6 +3118,9 @@ class _RoomScreenState extends State<RoomScreen>
     _PlaybackControlIntent intent,
   ) {
     final status = _currentStatus;
+    if (_webPlaybackSession != null) {
+      return _optimisticWebPlaybackStatus(intent);
+    }
     final value = _videoPlayerController?.value;
     if (status == null || value == null) return null;
     final currentTime = _isCurrentPlaybackLive
@@ -2856,6 +3229,12 @@ class _RoomScreenState extends State<RoomScreen>
     final nextMovieId = status.entry?.id;
     final previousEntry = previousStatus?.entry;
     final nextEntry = status.entry;
+    final rawWebPlaybackUri = nextEntry?.url.isNotEmpty == true
+        ? Uri.tryParse(nextEntry!.url)
+        : null;
+    final webPlaybackAdapter = rawWebPlaybackUri == null
+        ? null
+        : WebPlaybackAdapterRegistry.standard.forMediaUri(rawWebPlaybackUri);
     final generationChanged = liveStreamGenerationChanged(
       previousEntry,
       nextEntry,
@@ -2870,6 +3249,31 @@ class _RoomScreenState extends State<RoomScreen>
     if (oldMovieId != nextMovieId || sourceChanged) {
       _danmakuController.clear();
       _playbackDanmakuWindow = null;
+    }
+
+    if (webPlaybackAdapter != null && rawWebPlaybackUri != null) {
+      setState(() {
+        _currentStatus = status;
+        _videoInitialization.invalidate();
+        _isVideoLoading = false;
+        _videoError = null;
+      });
+      _cancelEndedLiveStreamDrain();
+      _disposeVideoControllerImmediately();
+      await _deactivateP2pResources();
+      if (!mounted || _isDisposing) return;
+      await _applyWebPlaybackStatus(
+        status,
+        rawWebPlaybackUri,
+        applySync: !skipPlayerSync,
+      );
+      return;
+    }
+    if (_webPlaybackUri != null ||
+        _webPlaybackSession != null ||
+        _webPlaybackOpening) {
+      await _disposeWebPlayback();
+      if (!mounted || _isDisposing) return;
     }
 
     final canPlayEntry =
@@ -3443,6 +3847,7 @@ class _RoomScreenState extends State<RoomScreen>
   }
 
   Widget _buildVideoEmptyState() {
+    if (_webPlaybackUri != null) return _buildWebPlaybackState();
     final entry = _currentStatus?.entry;
     final hasPlayback =
         entry?.url.isNotEmpty == true && entry?.isLiveStreamPlayable == true;
@@ -3525,6 +3930,18 @@ class _RoomScreenState extends State<RoomScreen>
   @override
   void dispose() {
     _isDisposing = true;
+    _webPlaybackGeneration += 1;
+    unawaited(_webPlaybackUpdatesSubscription?.cancel());
+    _webPlaybackUpdatesSubscription = null;
+    final webPlaybackCoordinator = _webPlaybackCoordinator;
+    final webPlaybackSession = _webPlaybackSession;
+    _webPlaybackCoordinator = null;
+    _webPlaybackSession = null;
+    if (webPlaybackCoordinator != null) {
+      unawaited(webPlaybackCoordinator.close());
+    } else if (webPlaybackSession != null) {
+      unawaited(webPlaybackSession.close());
+    }
     _chatReadStateUpdater.dispose();
     _realtimeLogPreferences.maxEntries.removeListener(
       _handleRealtimeLogMaxEntriesChanged,
@@ -7087,6 +7504,13 @@ class _RoomScreenState extends State<RoomScreen>
   }
 
   String _playlistProviderLabel(RoomMediaEntry entry) {
+    final webUri = Uri.tryParse(entry.url);
+    final webAdapter = webUri == null
+        ? null
+        : WebPlaybackAdapterRegistry.standard.forMediaUri(webUri);
+    if (webAdapter != null) {
+      return webAdapter.provider == WebPlaybackProvider.iqiyi ? '爱奇艺' : '腾讯视频';
+    }
     final sourceProvider = SourceConfigCodec.providerToString(
       entry.sourceProvider,
     );

@@ -41,8 +41,7 @@ class _OfficialWebPlaybackAddMediaFormState
   };
 
   String get _urlHint => switch (widget.provider) {
-    WebPlaybackProvider.iqiyi =>
-      'https://www.iqiyi.com/iex/v_19rrlo7rno.html',
+    WebPlaybackProvider.iqiyi => 'https://www.iqiyi.com/iex/v_19rrlo7rno.html',
     WebPlaybackProvider.tencentVideo =>
       'https://v.qq.com/x/cover/<coverId>/<videoId>.html',
   };

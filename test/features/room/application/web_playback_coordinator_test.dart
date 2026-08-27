@@ -39,15 +39,12 @@ void main() {
     );
     await _settle();
 
-    expect(
-      session.commands.map((command) => command.type),
-      [
-        WebPlaybackCommandType.pause,
-        WebPlaybackCommandType.seek,
-        WebPlaybackCommandType.rate,
-        WebPlaybackCommandType.play,
-      ],
-    );
+    expect(session.commands.map((command) => command.type), [
+      WebPlaybackCommandType.pause,
+      WebPlaybackCommandType.seek,
+      WebPlaybackCommandType.rate,
+      WebPlaybackCommandType.play,
+    ]);
     expect(session.commands[1].positionSeconds, closeTo(20, 0.05));
     expect(session.commands[2].playbackRate, 1.5);
     await coordinator.close();
@@ -194,7 +191,8 @@ void main() {
   });
 }
 
-Future<void> _settle() => Future<void>.delayed(const Duration(milliseconds: 30));
+Future<void> _settle() =>
+    Future<void>.delayed(const Duration(milliseconds: 30));
 
 final class _FakeWebPlaybackSession implements WebPlaybackSession {
   _FakeWebPlaybackSession({required WebPlaybackSnapshot snapshot})

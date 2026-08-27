@@ -181,7 +181,8 @@ final class WebPlaybackRuntime {
         'bridgeToken cannot be combined with a custom eventRouter',
       );
     }
-    return eventRouter ?? WebPlaybackEventRouter(expectedBridgeToken: bridgeToken);
+    return eventRouter ??
+        WebPlaybackEventRouter(expectedBridgeToken: bridgeToken);
   }
 
   static bool _shouldForwardLocalIntent({

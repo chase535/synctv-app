@@ -126,7 +126,9 @@ final class WebPlaybackBridgeMessage {
       if (decoded.containsKey('adKind') && advertisementKind == null) {
         return null;
       }
-      if (phase != null && !phase.isAdvertisement && advertisementKind != null) {
+      if (phase != null &&
+          !phase.isAdvertisement &&
+          advertisementKind != null) {
         return null;
       }
       if (phase == WebPlaybackPhase.overlayAdvertisement) {
@@ -183,7 +185,8 @@ final class WebPlaybackBridgeMessage {
       _isControlType(type) || type == WebPlaybackBridgeEventType.error;
 
   static bool _isValidBridgeToken(String value) =>
-      value.length >= minBridgeTokenLength && value.length <= maxBridgeTokenLength;
+      value.length >= minBridgeTokenLength &&
+      value.length <= maxBridgeTokenLength;
 
   static WebPlaybackBridgeEventType? _parseType(Object? value) =>
       switch (value) {

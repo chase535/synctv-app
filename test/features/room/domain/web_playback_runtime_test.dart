@@ -198,31 +198,34 @@ void main() {
       expect(seek?.localIntent, isNull);
     });
 
-    test('suppresses user controls generated inside preroll and midroll ads', () {
-      for (final adKind in ['preroll', 'midroll', 'unknown']) {
-        final runtime = WebPlaybackRuntime();
-        runtime.handleRawMessage(
-          jsonEncode({
-            'version': 1,
-            'type': 'phase',
-            'source': 'page',
-            'phase': 'advertisement',
-            'adKind': adKind,
-          }),
-        );
-        final update = runtime.handleRawMessage(
-          jsonEncode({
-            'version': 1,
-            'type': 'play',
-            'source': 'user',
-            'phase': 'advertisement',
-            'adKind': adKind,
-            'position': 5,
-          }),
-        );
-        expect(update?.localIntent, isNull);
-      }
-    });
+    test(
+      'suppresses user controls generated inside preroll and midroll ads',
+      () {
+        for (final adKind in ['preroll', 'midroll', 'unknown']) {
+          final runtime = WebPlaybackRuntime();
+          runtime.handleRawMessage(
+            jsonEncode({
+              'version': 1,
+              'type': 'phase',
+              'source': 'page',
+              'phase': 'advertisement',
+              'adKind': adKind,
+            }),
+          );
+          final update = runtime.handleRawMessage(
+            jsonEncode({
+              'version': 1,
+              'type': 'play',
+              'source': 'user',
+              'phase': 'advertisement',
+              'adKind': adKind,
+              'position': 5,
+            }),
+          );
+          expect(update?.localIntent, isNull);
+        }
+      },
+    );
 
     test(
       'recognizes command acknowledgements without creating local intents',

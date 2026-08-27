@@ -36,7 +36,11 @@ final class NativeDesktopWebPlaybackClient implements WebPlaybackClient {
     }
     final adapter = WebPlaybackAdapterRegistry.standard.forMediaUri(uri);
     if (adapter == null) {
-      throw ArgumentError.value(uri, 'uri', 'Unsupported official playback URL');
+      throw ArgumentError.value(
+        uri,
+        'uri',
+        'Unsupported official playback URL',
+      );
     }
     if (!await WebviewWindow.isWebviewAvailable()) {
       throw UnsupportedError(
@@ -328,9 +332,10 @@ final class _WindowsWebPlaybackSession implements WebPlaybackSession {
       'midroll' => WebPlaybackAdvertisementKind.midroll,
       'pause' => WebPlaybackAdvertisementKind.pause,
       'overlay' => WebPlaybackAdvertisementKind.overlay,
-      _ => phase == WebPlaybackPhase.overlayAdvertisement
-          ? WebPlaybackAdvertisementKind.overlay
-          : WebPlaybackAdvertisementKind.unknown,
+      _ =>
+        phase == WebPlaybackPhase.overlayAdvertisement
+            ? WebPlaybackAdvertisementKind.overlay
+            : WebPlaybackAdvertisementKind.unknown,
     };
   }
 }

@@ -26,19 +26,24 @@ void main() {
       );
     });
 
-    test('resolves Tencent Video media without accepting auth hosts as media', () {
-      final adapter = WebPlaybackAdapterRegistry.standard.forMediaUri(
-        Uri.parse('https://v.qq.com/x/cover/nhtfh14i9y1egge/d00249ld45q.html'),
-      );
+    test(
+      'resolves Tencent Video media without accepting auth hosts as media',
+      () {
+        final adapter = WebPlaybackAdapterRegistry.standard.forMediaUri(
+          Uri.parse(
+            'https://v.qq.com/x/cover/nhtfh14i9y1egge/d00249ld45q.html',
+          ),
+        );
 
-      expect(adapter?.provider, WebPlaybackProvider.tencentVideo);
-      expect(
-        WebPlaybackAdapterRegistry.standard.forSiteUri(
-          Uri.parse('https://graph.qq.com/oauth2.0/authorize'),
-        ),
-        isNull,
-      );
-    });
+        expect(adapter?.provider, WebPlaybackProvider.tencentVideo);
+        expect(
+          WebPlaybackAdapterRegistry.standard.forSiteUri(
+            Uri.parse('https://graph.qq.com/oauth2.0/authorize'),
+          ),
+          isNull,
+        );
+      },
+    );
   });
 
   group('web playback adapter navigation', () {

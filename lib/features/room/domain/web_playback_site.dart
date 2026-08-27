@@ -35,8 +35,7 @@ final class WebPlaybackSitePolicy {
 
   bool allows(Uri uri) => _allowsHost(uri, allowedHosts);
 
-  bool allowsAuthentication(Uri uri) =>
-      _allowsHost(uri, authenticationHosts);
+  bool allowsAuthentication(Uri uri) => _allowsHost(uri, authenticationHosts);
 
   bool allowsMainFrameNavigation(Uri uri) =>
       allows(uri) || allowsAuthentication(uri);

@@ -184,7 +184,8 @@ final class WebPlaybackCoordinator {
 
     final targetSeconds = target.position.inMilliseconds / 1000;
     final needsSeek =
-        (snapshot.positionSeconds - targetSeconds).abs() > _seekToleranceSeconds;
+        (snapshot.positionSeconds - targetSeconds).abs() >
+        _seekToleranceSeconds;
     final needsRate =
         (snapshot.playbackRate - target.playbackRate).abs() > _rateTolerance;
     final temporarilyPause =
@@ -222,7 +223,9 @@ final class WebPlaybackCoordinator {
 
   Future<void> _execute(WebPlaybackCommand command) async {
     if (!await _session.execute(command)) {
-      throw StateError('Web playback command was rejected: ${command.type.name}');
+      throw StateError(
+        'Web playback command was rejected: ${command.type.name}',
+      );
     }
   }
 
@@ -248,7 +251,8 @@ final class WebPlaybackCoordinator {
       final targetSeconds = target.position.inMilliseconds / 1000;
       final needsCorrection =
           snapshot.isPlaying != target.isPlaying ||
-          (snapshot.playbackRate - target.playbackRate).abs() > _rateTolerance ||
+          (snapshot.playbackRate - target.playbackRate).abs() >
+              _rateTolerance ||
           (snapshot.positionSeconds - targetSeconds).abs() >
               _seekToleranceSeconds;
       if (needsCorrection) _queueApply(target);
@@ -271,12 +275,12 @@ final class WebPlaybackCoordinator {
           .difference(stamped.receivedAt)
           .inMilliseconds;
       if (elapsedMilliseconds > 0) {
-        milliseconds +=
-            (elapsedMilliseconds * stamped.target.playbackRate).round();
+        milliseconds += (elapsedMilliseconds * stamped.target.playbackRate)
+            .round();
       }
     }
-    final maxMilliseconds =
-        (WebPlaybackBridgeMessage.maxPositionSeconds * 1000).round();
+    final maxMilliseconds = (WebPlaybackBridgeMessage.maxPositionSeconds * 1000)
+        .round();
     milliseconds = milliseconds.clamp(0, maxMilliseconds);
     return WebPlaybackSyncTarget(
       isPlaying: stamped.target.isPlaying,

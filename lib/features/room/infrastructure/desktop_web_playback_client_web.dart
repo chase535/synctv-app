@@ -7,10 +7,8 @@ final class NativeDesktopWebPlaybackClient implements WebPlaybackClient {
   bool get supported => false;
 
   @override
-  Future<WebPlaybackSession> open({
-    required Uri uri,
-    required String title,
-  }) => throw UnsupportedError(
-    'Official-site web playback is not available on this platform',
-  );
+  Future<WebPlaybackSession> open({required Uri uri, required String title}) =>
+      throw UnsupportedError(
+        'Official-site web playback is not available on this platform',
+      );
 }

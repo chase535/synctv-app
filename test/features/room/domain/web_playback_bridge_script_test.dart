@@ -40,10 +40,7 @@ void main() {
         webPlaybackBridgeBootstrapScript,
         contains('PRIVILEGED_ORIGINS.has(window.location.origin)'),
       );
-      expect(
-        webPlaybackBridgeBootstrapScript,
-        contains('token: sessionToken'),
-      );
+      expect(webPlaybackBridgeBootstrapScript, contains('token: sessionToken'));
       expect(webPlaybackBridgeBootstrapScript, contains('setSessionToken'));
     });
 
@@ -58,7 +55,9 @@ void main() {
       );
       expect(
         webPlaybackBridgeBootstrapScript,
-        contains('Content timeline is unavailable during a blocking advertisement'),
+        contains(
+          'Content timeline is unavailable during a blocking advertisement',
+        ),
       );
     });
 
@@ -109,9 +108,7 @@ void main() {
 
       expect(
         script,
-        startsWith(
-          'window.__synctvPlaybackBridge?.setSessionToken("$token");',
-        ),
+        startsWith('window.__synctvPlaybackBridge?.setSessionToken("$token");'),
       );
       expect(script, contains('setTransport('));
       expect(script, contains('setPhaseDetector('));
@@ -122,7 +119,8 @@ void main() {
       expect(
         () => buildWebPlaybackBridgeStartScript(
           bridgeToken: 'short',
-          transportFunctionExpression: '(message) => Bridge.postMessage(message)',
+          transportFunctionExpression:
+              '(message) => Bridge.postMessage(message)',
         ),
         throwsArgumentError,
       );
