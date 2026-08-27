@@ -8,6 +8,7 @@ final class WebPlaybackSnapshot {
   const WebPlaybackSnapshot({
     this.ready = false,
     this.phase = WebPlaybackPhase.initializing,
+    this.advertisementKind,
     this.isPlaying = false,
     this.positionSeconds = 0,
     this.playbackRate = 1,
@@ -16,6 +17,7 @@ final class WebPlaybackSnapshot {
 
   final bool ready;
   final WebPlaybackPhase phase;
+  final WebPlaybackAdvertisementKind? advertisementKind;
   final bool isPlaying;
   final double positionSeconds;
   final double playbackRate;
@@ -38,9 +40,10 @@ final class WebPlaybackRuntimeUpdate {
 
 final class WebPlaybackRuntime {
   WebPlaybackRuntime({
+    String? bridgeToken,
     WebPlaybackEventRouter? eventRouter,
     WebPlaybackSyncGate? syncGate,
-  }) : _eventRouter = eventRouter ?? WebPlaybackEventRouter(),
+  }) : _eventRouter = _createEventRouter(eventRouter, bridgeToken),
        _syncGate = syncGate ?? WebPlaybackSyncGate();
 
   final WebPlaybackEventRouter _eventRouter;
@@ -70,22 +73,41 @@ final class WebPlaybackRuntime {
   }
 
   WebPlaybackRuntimeUpdate _applyRoute(WebPlaybackEventRoute route) {
+    final previousPhase = _snapshot.phase;
     final message = route.message;
     var ready = _snapshot.ready;
     var phase = _snapshot.phase;
+    var advertisementKind = _snapshot.advertisementKind;
     var isPlaying = _snapshot.isPlaying;
     var positionSeconds = _snapshot.positionSeconds;
     var playbackRate = _snapshot.playbackRate;
     var errorMessage = _snapshot.errorMessage;
     WebPlaybackSyncTarget? releasedSyncTarget;
 
-    void applyPhase(WebPlaybackPhase nextPhase) {
+    void applyPhase(
+      WebPlaybackPhase nextPhase, {
+      WebPlaybackAdvertisementKind? nextAdvertisementKind,
+    }) {
+      if (nextPhase.isAdvertisement) {
+        advertisementKind =
+            nextAdvertisementKind ??
+            (nextPhase == WebPlaybackPhase.overlayAdvertisement
+                ? WebPlaybackAdvertisementKind.overlay
+                : WebPlaybackAdvertisementKind.unknown);
+      } else {
+        advertisementKind = null;
+      }
       if (phase == nextPhase) return;
       phase = nextPhase;
       releasedSyncTarget ??= _syncGate.updatePhase(nextPhase);
     }
 
-    if (message.phase != null) applyPhase(message.phase!);
+    if (message.phase != null) {
+      applyPhase(
+        message.phase!,
+        nextAdvertisementKind: message.advertisementKind,
+      );
+    }
     if (message.positionSeconds != null) {
       positionSeconds = message.positionSeconds!;
     }
@@ -124,17 +146,58 @@ final class WebPlaybackRuntime {
     _snapshot = WebPlaybackSnapshot(
       ready: ready,
       phase: phase,
+      advertisementKind: advertisementKind,
       isPlaying: isPlaying,
       positionSeconds: positionSeconds,
       playbackRate: playbackRate,
       errorMessage: errorMessage,
     );
 
+    var localIntent = route.localIntent;
+    if (localIntent != null &&
+        !_shouldForwardLocalIntent(
+          phase: phase,
+          previousPhase: previousPhase,
+          advertisementKind: advertisementKind,
+          intent: localIntent,
+        )) {
+      localIntent = null;
+    }
+
     return WebPlaybackRuntimeUpdate(
       snapshot: _snapshot,
-      localIntent: route.localIntent,
+      localIntent: localIntent,
       commandAcknowledged: route.commandAcknowledged,
       releasedSyncTarget: releasedSyncTarget,
     );
+  }
+
+  static WebPlaybackEventRouter _createEventRouter(
+    WebPlaybackEventRouter? eventRouter,
+    String? bridgeToken,
+  ) {
+    if (eventRouter != null && bridgeToken != null) {
+      throw ArgumentError(
+        'bridgeToken cannot be combined with a custom eventRouter',
+      );
+    }
+    return eventRouter ?? WebPlaybackEventRouter(expectedBridgeToken: bridgeToken);
+  }
+
+  static bool _shouldForwardLocalIntent({
+    required WebPlaybackPhase phase,
+    required WebPlaybackPhase previousPhase,
+    required WebPlaybackAdvertisementKind? advertisementKind,
+    required WebPlaybackLocalIntent intent,
+  }) {
+    if (phase != WebPlaybackPhase.advertisement) return true;
+
+    if (advertisementKind == WebPlaybackAdvertisementKind.pause) {
+      return intent.type == WebPlaybackLocalIntentType.play ||
+          intent.type == WebPlaybackLocalIntentType.pause;
+    }
+
+    return intent.type == WebPlaybackLocalIntentType.pause &&
+        previousPhase.hasContentTimeline;
   }
 }

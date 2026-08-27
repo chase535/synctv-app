@@ -29,17 +29,36 @@ final class WebPlaybackEventRoute {
 }
 
 final class WebPlaybackEventRouter {
-  WebPlaybackEventRouter({WebPlaybackCommandTracker? commandTracker})
-    : _commandTracker = commandTracker ?? WebPlaybackCommandTracker();
+  WebPlaybackEventRouter({
+    WebPlaybackCommandTracker? commandTracker,
+    String? expectedBridgeToken,
+  }) : _commandTracker = commandTracker ?? WebPlaybackCommandTracker(),
+       _expectedBridgeToken = expectedBridgeToken {
+    if (expectedBridgeToken != null &&
+        (expectedBridgeToken.length <
+                WebPlaybackBridgeMessage.minBridgeTokenLength ||
+            expectedBridgeToken.length >
+                WebPlaybackBridgeMessage.maxBridgeTokenLength)) {
+      throw ArgumentError.value(
+        expectedBridgeToken.length,
+        'expectedBridgeToken',
+        'Invalid web playback bridge token length',
+      );
+    }
+  }
 
   final WebPlaybackCommandTracker _commandTracker;
+  final String? _expectedBridgeToken;
 
   void rememberCommand(WebPlaybackCommand command, {DateTime? now}) {
     _commandTracker.remember(command, now: now);
   }
 
   WebPlaybackEventRoute? routeRaw(String raw, {DateTime? now}) {
-    final message = WebPlaybackBridgeMessage.tryDecode(raw);
+    final message = WebPlaybackBridgeMessage.tryDecode(
+      raw,
+      expectedBridgeToken: _expectedBridgeToken,
+    );
     if (message == null) return null;
     return route(message, now: now);
   }
@@ -48,6 +67,11 @@ final class WebPlaybackEventRouter {
     WebPlaybackBridgeMessage message, {
     DateTime? now,
   }) {
+    if (_expectedBridgeToken != null &&
+        message.bridgeToken != _expectedBridgeToken) {
+      return null;
+    }
+
     if (message.source == WebPlaybackBridgeEventSource.command) {
       if (!_commandTracker.acknowledge(message, now: now)) return null;
       return WebPlaybackEventRoute(message: message, commandAcknowledged: true);

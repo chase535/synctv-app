@@ -33,17 +33,68 @@ void main() {
       expect(message?.type, WebPlaybackBridgeEventType.pause);
     });
 
-    test('decodes playback phase events', () {
-      final message = WebPlaybackBridgeMessage.tryDecode(
+    test('decodes blocking and overlay advertisement metadata', () {
+      final pauseAd = WebPlaybackBridgeMessage.tryDecode(
         jsonEncode({
           'version': 1,
           'type': 'phase',
           'source': 'page',
           'phase': 'advertisement',
+          'adKind': 'pause',
+        }),
+      );
+      final overlay = WebPlaybackBridgeMessage.tryDecode(
+        jsonEncode({
+          'version': 1,
+          'type': 'phase',
+          'source': 'page',
+          'phase': 'overlayAdvertisement',
+          'adKind': 'overlay',
         }),
       );
 
-      expect(message?.phase, WebPlaybackPhase.advertisement);
+      expect(pauseAd?.phase, WebPlaybackPhase.advertisement);
+      expect(pauseAd?.advertisementKind, WebPlaybackAdvertisementKind.pause);
+      expect(overlay?.phase, WebPlaybackPhase.overlayAdvertisement);
+      expect(overlay?.advertisementKind, WebPlaybackAdvertisementKind.overlay);
+    });
+
+    test('requires the expected per-session bridge token when configured', () {
+      const token = '0123456789abcdef0123456789abcdef';
+      final valid = jsonEncode({
+        'version': 1,
+        'type': 'ready',
+        'source': 'page',
+        'token': token,
+      });
+      final forged = jsonEncode({
+        'version': 1,
+        'type': 'ready',
+        'source': 'page',
+        'token': 'fedcba9876543210fedcba9876543210',
+      });
+
+      expect(
+        WebPlaybackBridgeMessage.tryDecode(
+          valid,
+          expectedBridgeToken: token,
+        ),
+        isNotNull,
+      );
+      expect(
+        WebPlaybackBridgeMessage.tryDecode(
+          forged,
+          expectedBridgeToken: token,
+        ),
+        isNull,
+      );
+      expect(
+        WebPlaybackBridgeMessage.tryDecode(
+          jsonEncode({'version': 1, 'type': 'ready', 'source': 'page'}),
+          expectedBridgeToken: token,
+        ),
+        isNull,
+      );
     });
 
     test('rejects unsupported versions and malformed messages', () {
@@ -62,6 +113,17 @@ void main() {
       expect(
         WebPlaybackBridgeMessage.tryDecode(
           jsonEncode({'version': 1, 'type': 'unknown'}),
+        ),
+        isNull,
+      );
+      expect(
+        WebPlaybackBridgeMessage.tryDecode(
+          jsonEncode({
+            'version': 1,
+            'type': 'phase',
+            'phase': 'content',
+            'adKind': 'pause',
+          }),
         ),
         isNull,
       );

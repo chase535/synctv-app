@@ -40,7 +40,7 @@ final class WebPlaybackMediaIdentity {
 
   static WebPlaybackMediaIdentity? _parseIqiyi(Uri uri) {
     final match = RegExp(
-      r'^/(v|a)_([A-Za-z0-9_-]+)\.html$',
+      r'^/(?:iex/)?(v|a)_([A-Za-z0-9_-]+)\.html$',
     ).firstMatch(uri.path);
     if (match == null) return null;
 

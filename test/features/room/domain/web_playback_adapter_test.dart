@@ -26,7 +26,7 @@ void main() {
       );
     });
 
-    test('resolves Tencent Video media without accepting other qq hosts', () {
+    test('resolves Tencent Video media without accepting auth hosts as media', () {
       final adapter = WebPlaybackAdapterRegistry.standard.forMediaUri(
         Uri.parse('https://v.qq.com/x/cover/nhtfh14i9y1egge/d00249ld45q.html'),
       );
@@ -45,7 +45,7 @@ void main() {
     const iqiyi = IqiyiWebPlaybackAdapter();
     const tencent = TencentVideoWebPlaybackAdapter();
 
-    test('allows only the bound official origin as privileged main frame', () {
+    test('keeps playback origins privileged and auth origins unprivileged', () {
       expect(
         iqiyi.classifyNavigation(
           Uri.parse('https://www.iqiyi.com/v_19rrn9o9n8.html'),
@@ -58,11 +58,25 @@ void main() {
           Uri.parse('https://passport.iqiyi.com/pages/login.action'),
           isMainFrame: true,
         ),
-        WebPlaybackNavigationDisposition.block,
+        WebPlaybackNavigationDisposition.allowUnprivileged,
+      );
+      expect(
+        tencent.classifyNavigation(
+          Uri.parse('https://graph.qq.com/oauth2.0/authorize'),
+          isMainFrame: true,
+        ),
+        WebPlaybackNavigationDisposition.allowUnprivileged,
       );
       expect(
         tencent.classifyNavigation(
           Uri.parse('https://www.iqiyi.com/v_19rrn9o9n8.html'),
+          isMainFrame: true,
+        ),
+        WebPlaybackNavigationDisposition.block,
+      );
+      expect(
+        tencent.classifyNavigation(
+          Uri.parse('https://evil.qq.com/login'),
           isMainFrame: true,
         ),
         WebPlaybackNavigationDisposition.block,
@@ -97,10 +111,11 @@ void main() {
     );
   });
 
-  test('phase detector is provider-agnostic and geometry-aware', () {
+  test('phase detector is geometry-aware and recognizes pause/overlay ads', () {
     expect(webPlaybackOverlayPhaseDetector, contains('getBoundingClientRect'));
     expect(webPlaybackOverlayPhaseDetector, contains('overlapWidth'));
-    expect(webPlaybackOverlayPhaseDetector, contains('广告'));
+    expect(webPlaybackOverlayPhaseDetector, contains('暂停广告'));
+    expect(webPlaybackOverlayPhaseDetector, contains('overlayAdvertisement'));
     expect(
       const IqiyiWebPlaybackAdapter().phaseDetectorFunctionExpression,
       webPlaybackOverlayPhaseDetector,

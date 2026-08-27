@@ -35,5 +35,6 @@ abstract base class BaseWebPlaybackAdapter implements WebPlaybackAdapter {
     uri: uri,
     isMainFrame: isMainFrame,
     isPrivilegedUri: sitePolicy.allows,
+    isAuthenticationUri: sitePolicy.allowsAuthentication,
   );
 }

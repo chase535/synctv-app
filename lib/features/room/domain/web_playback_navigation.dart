@@ -16,6 +16,7 @@ WebPlaybackNavigationDisposition classifyWebPlaybackNavigation({
   required Uri uri,
   required bool isMainFrame,
   required bool Function(Uri uri) isPrivilegedUri,
+  bool Function(Uri uri)? isAuthenticationUri,
 }) {
   if (isPrivilegedUri(uri)) {
     return isMainFrame
@@ -25,6 +26,9 @@ WebPlaybackNavigationDisposition classifyWebPlaybackNavigation({
 
   if (isMainFrame) {
     if (uri.scheme == 'about' && uri.path == 'blank') {
+      return WebPlaybackNavigationDisposition.allowUnprivileged;
+    }
+    if (isAuthenticationUri?.call(uri) == true) {
       return WebPlaybackNavigationDisposition.allowUnprivileged;
     }
     return WebPlaybackNavigationDisposition.block;

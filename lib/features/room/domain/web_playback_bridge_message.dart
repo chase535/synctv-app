@@ -20,10 +20,12 @@ final class WebPlaybackBridgeMessage {
     required this.type,
     required this.source,
     this.phase,
+    this.advertisementKind,
     this.positionSeconds,
     this.playbackRate,
     this.commandId,
     this.errorMessage,
+    this.bridgeToken,
   });
 
   static const int protocolVersion = 1;
@@ -31,20 +33,31 @@ final class WebPlaybackBridgeMessage {
   static const double maxPositionSeconds = 604800;
   static const double minPlaybackRate = 0.1;
   static const double maxPlaybackRate = 16;
+  static const int minBridgeTokenLength = 32;
+  static const int maxBridgeTokenLength = 128;
   static const int maxCommandIdLength = 128;
   static const int maxErrorMessageLength = 1024;
 
   final WebPlaybackBridgeEventType type;
   final WebPlaybackBridgeEventSource source;
   final WebPlaybackPhase? phase;
+  final WebPlaybackAdvertisementKind? advertisementKind;
   final double? positionSeconds;
   final double? playbackRate;
   final String? commandId;
   final String? errorMessage;
+  final String? bridgeToken;
 
-  static WebPlaybackBridgeMessage? tryDecode(String raw) {
+  static WebPlaybackBridgeMessage? tryDecode(
+    String raw, {
+    String? expectedBridgeToken,
+  }) {
     if (raw.length > maxEncodedBytes ||
         utf8.encode(raw).length > maxEncodedBytes) {
+      return null;
+    }
+    if (expectedBridgeToken != null &&
+        !_isValidBridgeToken(expectedBridgeToken)) {
       return null;
     }
 
@@ -52,6 +65,16 @@ final class WebPlaybackBridgeMessage {
       final decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic>) return null;
       if (decoded['version'] != protocolVersion) return null;
+
+      final bridgeToken = _parseOptionalString(
+        decoded['token'],
+        maxLength: maxBridgeTokenLength,
+      );
+      if (decoded.containsKey('token') && bridgeToken == null) return null;
+      if (bridgeToken != null && !_isValidBridgeToken(bridgeToken)) return null;
+      if (expectedBridgeToken != null && bridgeToken != expectedBridgeToken) {
+        return null;
+      }
 
       final type = _parseType(decoded['type']);
       if (type == null) return null;
@@ -99,6 +122,20 @@ final class WebPlaybackBridgeMessage {
       final phase = _parsePhase(decoded['phase']);
       if (decoded.containsKey('phase') && phase == null) return null;
 
+      var advertisementKind = _parseAdvertisementKind(decoded['adKind']);
+      if (decoded.containsKey('adKind') && advertisementKind == null) {
+        return null;
+      }
+      if (phase != null && !phase.isAdvertisement && advertisementKind != null) {
+        return null;
+      }
+      if (phase == WebPlaybackPhase.overlayAdvertisement) {
+        advertisementKind ??= WebPlaybackAdvertisementKind.overlay;
+      }
+      if (phase == WebPlaybackPhase.advertisement) {
+        advertisementKind ??= WebPlaybackAdvertisementKind.unknown;
+      }
+
       final errorMessage = _parseOptionalString(
         decoded['error'],
         maxLength: maxErrorMessageLength,
@@ -122,10 +159,12 @@ final class WebPlaybackBridgeMessage {
         type: type,
         source: source,
         phase: phase,
+        advertisementKind: advertisementKind,
         positionSeconds: positionSeconds,
         playbackRate: playbackRate,
         commandId: commandId,
         errorMessage: errorMessage,
+        bridgeToken: bridgeToken,
       );
     } on FormatException {
       return null;
@@ -142,6 +181,9 @@ final class WebPlaybackBridgeMessage {
 
   static bool _isCommandEventType(WebPlaybackBridgeEventType type) =>
       _isControlType(type) || type == WebPlaybackBridgeEventType.error;
+
+  static bool _isValidBridgeToken(String value) =>
+      value.length >= minBridgeTokenLength && value.length <= maxBridgeTokenLength;
 
   static WebPlaybackBridgeEventType? _parseType(Object? value) =>
       switch (value) {
@@ -167,12 +209,23 @@ final class WebPlaybackBridgeMessage {
   static WebPlaybackPhase? _parsePhase(Object? value) => switch (value) {
     'initializing' => WebPlaybackPhase.initializing,
     'advertisement' => WebPlaybackPhase.advertisement,
+    'overlayAdvertisement' => WebPlaybackPhase.overlayAdvertisement,
     'content' => WebPlaybackPhase.content,
     'buffering' => WebPlaybackPhase.buffering,
     'ended' => WebPlaybackPhase.ended,
     'unsupported' => WebPlaybackPhase.unsupported,
     _ => null,
   };
+
+  static WebPlaybackAdvertisementKind? _parseAdvertisementKind(Object? value) =>
+      switch (value) {
+        'unknown' => WebPlaybackAdvertisementKind.unknown,
+        'preroll' => WebPlaybackAdvertisementKind.preroll,
+        'midroll' => WebPlaybackAdvertisementKind.midroll,
+        'pause' => WebPlaybackAdvertisementKind.pause,
+        'overlay' => WebPlaybackAdvertisementKind.overlay,
+        _ => null,
+      };
 
   static double? _parseOptionalFiniteDouble(
     Object? value, {

@@ -22,6 +22,19 @@ void main() {
       );
     });
 
+    test('accepts the iQIYI iex playback route variant', () {
+      final identity = WebPlaybackMediaIdentity.tryParse(
+        Uri.parse('https://www.iqiyi.com/iex/v_19rrlo7rno.html?foo=bar'),
+      );
+
+      expect(identity?.kind, WebPlaybackMediaKind.iqiyiVideo);
+      expect(identity?.mediaId, '19rrlo7rno');
+      expect(
+        identity?.canonicalUri.toString(),
+        'https://www.iqiyi.com/iex/v_19rrlo7rno.html',
+      );
+    });
+
     test('parses iQIYI album identities', () {
       final identity = WebPlaybackMediaIdentity.tryParse(
         Uri.parse('https://www.iqiyi.com/a_1cul7zi24jt.html'),
