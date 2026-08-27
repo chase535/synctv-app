@@ -1,0 +1,556 @@
+import 'dart:convert';
+
+import 'package:synctv_app/features/room/domain/web_playback_command.dart';
+
+const String webPlaybackBridgeBootstrapScript = r'''(() => {
+  const existing = window.__synctvPlaybackBridge;
+  if (existing && existing.version === 1) {
+    existing.start();
+    return;
+  }
+
+  const VERSION = 1;
+  const MAX_MESSAGE_LENGTH = 16 * 1024;
+  const MAX_COMMAND_ID_LENGTH = 128;
+  const MAX_ERROR_LENGTH = 1024;
+  const MAX_POSITION = 604800;
+  const MIN_RATE = 0.1;
+  const MAX_RATE = 16;
+  const USER_GESTURE_WINDOW_MS = 1000;
+  const COMMAND_TTL_MS = 5000;
+  const VALID_PHASES = new Set([
+    'initializing',
+    'advertisement',
+    'content',
+    'buffering',
+    'ended',
+    'unsupported',
+  ]);
+
+  let transport = null;
+  const queuedMessages = [];
+  let activeVideo = null;
+  let phase = 'initializing';
+  let phaseDetector = null;
+  let lastUserGestureAt = 0;
+  let refreshScheduled = false;
+  let observer = null;
+  let refreshTimer = null;
+  let started = false;
+  const pendingCommands = new Map();
+
+  function now() {
+    return Date.now();
+  }
+
+  function finiteNumber(value) {
+    return typeof value === 'number' && Number.isFinite(value);
+  }
+
+  function clampText(value, maxLength) {
+    const text = String(value == null ? '' : value);
+    if (text.length <= maxLength) return text;
+    return text.slice(0, maxLength);
+  }
+
+  function post(payload) {
+    const envelope = Object.assign({ version: VERSION, source: 'page' }, payload);
+    let raw;
+    try {
+      raw = JSON.stringify(envelope);
+    } catch (_) {
+      return;
+    }
+    if (raw.length > MAX_MESSAGE_LENGTH) return;
+
+    if (transport) {
+      try {
+        transport(raw);
+        return;
+      } catch (_) {
+        transport = null;
+      }
+    }
+
+    if (queuedMessages.length >= 32) queuedMessages.shift();
+    queuedMessages.push(raw);
+  }
+
+  function setTransport(nextTransport) {
+    if (typeof nextTransport !== 'function') return false;
+    transport = nextTransport;
+    while (queuedMessages.length > 0) {
+      const raw = queuedMessages.shift();
+      try {
+        transport(raw);
+      } catch (_) {
+        queuedMessages.unshift(raw);
+        transport = null;
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function rememberUserGesture(event) {
+    if (!event || event.isTrusted !== false) lastUserGestureAt = now();
+  }
+
+  document.addEventListener('pointerdown', rememberUserGesture, true);
+  document.addEventListener('touchstart', rememberUserGesture, true);
+  document.addEventListener('keydown', rememberUserGesture, true);
+
+  function removeExpiredCommands() {
+    const timestamp = now();
+    for (const [type, pending] of pendingCommands.entries()) {
+      if (pending.expiresAt < timestamp) pendingCommands.delete(type);
+    }
+  }
+
+  function rememberCommand(type, commandId) {
+    removeExpiredCommands();
+    pendingCommands.set(type, {
+      id: commandId,
+      expiresAt: now() + COMMAND_TTL_MS,
+    });
+  }
+
+  function sourceForControl(type) {
+    removeExpiredCommands();
+    const pending = pendingCommands.get(type);
+    if (pending) {
+      pendingCommands.delete(type);
+      return { source: 'command', commandId: pending.id };
+    }
+    if (now() - lastUserGestureAt <= USER_GESTURE_WINDOW_MS) {
+      return { source: 'user' };
+    }
+    return { source: 'page' };
+  }
+
+  function emitControl(type, extra) {
+    const payload = Object.assign({ type }, sourceForControl(type), extra || {});
+    post(payload);
+  }
+
+  function acknowledgeIfPending(type, commandId, extra) {
+    const pending = pendingCommands.get(type);
+    if (!pending || pending.id !== commandId) return;
+    pendingCommands.delete(type);
+    post(
+      Object.assign(
+        { type, source: 'command', commandId },
+        extra || {},
+      ),
+    );
+  }
+
+  function emitCommandError(commandId, error) {
+    if (typeof commandId !== 'string' || commandId.length === 0) return;
+    if (commandId.length > MAX_COMMAND_ID_LENGTH) return;
+    post({
+      type: 'error',
+      source: 'command',
+      commandId,
+      error: clampText(error, MAX_ERROR_LENGTH) || 'Playback command failed',
+    });
+  }
+
+  function collectVideos(rootDocument, result, visitedDocuments) {
+    if (!rootDocument || visitedDocuments.has(rootDocument)) return;
+    visitedDocuments.add(rootDocument);
+
+    try {
+      for (const video of rootDocument.querySelectorAll('video')) {
+        result.push(video);
+      }
+      for (const frame of rootDocument.querySelectorAll('iframe')) {
+        try {
+          if (frame.contentDocument) {
+            collectVideos(frame.contentDocument, result, visitedDocuments);
+          }
+        } catch (_) {
+          // Cross-origin frames are intentionally ignored.
+        }
+      }
+    } catch (_) {
+      // A detached document may become inaccessible during SPA navigation.
+    }
+  }
+
+  function scoreVideo(video) {
+    try {
+      const rect = video.getBoundingClientRect();
+      const style = video.ownerDocument.defaultView.getComputedStyle(video);
+      if (
+        style.display === 'none' ||
+        style.visibility === 'hidden' ||
+        Number(style.opacity) === 0
+      ) {
+        return Number.NEGATIVE_INFINITY;
+      }
+      const area = Math.max(0, rect.width) * Math.max(0, rect.height);
+      let score = area;
+      if (!video.paused && !video.ended) score += 1e9;
+      if (video.readyState >= 2) score += 1e7;
+      if (video.currentSrc) score += 1e6;
+      return score;
+    } catch (_) {
+      return Number.NEGATIVE_INFINITY;
+    }
+  }
+
+  function findBestVideo() {
+    const videos = [];
+    collectVideos(document, videos, new Set());
+    let best = null;
+    let bestScore = Number.NEGATIVE_INFINITY;
+    for (const video of videos) {
+      const score = scoreVideo(video);
+      if (score > bestScore) {
+        best = video;
+        bestScore = score;
+      }
+    }
+    return best;
+  }
+
+  function detectPhase(fallbackPhase) {
+    if (typeof phaseDetector === 'function' && activeVideo) {
+      try {
+        const detected = phaseDetector(activeVideo, activeVideo.ownerDocument);
+        if (VALID_PHASES.has(detected)) return detected;
+      } catch (_) {
+        // The shared runtime must keep working if a provider heuristic breaks.
+      }
+    }
+    return fallbackPhase;
+  }
+
+  function updatePhase(fallbackPhase) {
+    const nextPhase = detectPhase(fallbackPhase);
+    if (!VALID_PHASES.has(nextPhase) || nextPhase === phase) return;
+    phase = nextPhase;
+    post({ type: 'phase', source: 'page', phase });
+  }
+
+  function videoForEvent(event) {
+    const video = event && event.currentTarget;
+    return video === activeVideo ? video : null;
+  }
+
+  const handlers = {
+    play(event) {
+      const video = videoForEvent(event);
+      if (!video) return;
+      emitControl('play', {
+        position: finiteNumber(video.currentTime) ? video.currentTime : undefined,
+      });
+    },
+    pause(event) {
+      const video = videoForEvent(event);
+      if (!video) return;
+      emitControl('pause', {
+        position: finiteNumber(video.currentTime) ? video.currentTime : undefined,
+      });
+    },
+    seeked(event) {
+      const video = videoForEvent(event);
+      if (!video) return;
+      emitControl('seek', {
+        position: finiteNumber(video.currentTime) ? video.currentTime : 0,
+      });
+    },
+    ratechange(event) {
+      const video = videoForEvent(event);
+      if (!video) return;
+      emitControl('rate', {
+        playbackRate: finiteNumber(video.playbackRate) ? video.playbackRate : 1,
+      });
+    },
+    waiting(event) {
+      if (!videoForEvent(event)) return;
+      if (phase !== 'advertisement') updatePhase('buffering');
+    },
+    stalled(event) {
+      if (!videoForEvent(event)) return;
+      if (phase !== 'advertisement') updatePhase('buffering');
+    },
+    playing(event) {
+      if (!videoForEvent(event)) return;
+      updatePhase('content');
+    },
+    canplay(event) {
+      if (!videoForEvent(event)) return;
+      if (phase === 'initializing' || phase === 'buffering') {
+        updatePhase('content');
+      }
+    },
+    ended(event) {
+      const video = videoForEvent(event);
+      if (!video) return;
+      updatePhase('ended');
+      post({
+        type: 'ended',
+        source: 'page',
+        position: finiteNumber(video.currentTime) ? video.currentTime : undefined,
+      });
+    },
+    error(event) {
+      const video = videoForEvent(event);
+      if (!video) return;
+      const mediaError = video.error;
+      post({
+        type: 'error',
+        source: 'page',
+        error: clampText(
+          mediaError && mediaError.message
+            ? mediaError.message
+            : 'HTML media element error',
+          MAX_ERROR_LENGTH,
+        ),
+      });
+    },
+  };
+
+  function unbindVideo() {
+    if (!activeVideo) return;
+    for (const [eventName, handler] of Object.entries(handlers)) {
+      activeVideo.removeEventListener(eventName, handler);
+    }
+    activeVideo = null;
+  }
+
+  function bindVideo(video) {
+    if (video === activeVideo) return;
+    pendingCommands.clear();
+    unbindVideo();
+    activeVideo = video;
+    if (!activeVideo) {
+      updatePhase('initializing');
+      return;
+    }
+
+    for (const [eventName, handler] of Object.entries(handlers)) {
+      activeVideo.addEventListener(eventName, handler);
+    }
+
+    post({
+      type: 'ready',
+      source: 'page',
+      position: finiteNumber(activeVideo.currentTime)
+        ? activeVideo.currentTime
+        : undefined,
+      playbackRate: finiteNumber(activeVideo.playbackRate)
+        ? activeVideo.playbackRate
+        : undefined,
+    });
+    updatePhase(activeVideo.readyState >= 1 ? 'content' : 'initializing');
+  }
+
+  function refresh() {
+    refreshScheduled = false;
+    bindVideo(findBestVideo());
+  }
+
+  function scheduleRefresh() {
+    if (refreshScheduled) return;
+    refreshScheduled = true;
+    queueMicrotask(refresh);
+  }
+
+  function start() {
+    if (started) {
+      scheduleRefresh();
+      return;
+    }
+    started = true;
+    observer = new MutationObserver(scheduleRefresh);
+    const beginObserving = () => {
+      if (!observer || !document.documentElement) return;
+      observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+      });
+      scheduleRefresh();
+    };
+    if (document.documentElement) {
+      beginObserving();
+    } else {
+      document.addEventListener('DOMContentLoaded', beginObserving, { once: true });
+    }
+    refreshTimer = setInterval(refresh, 1000);
+    scheduleRefresh();
+  }
+
+  function setPhaseDetector(detector) {
+    phaseDetector = typeof detector === 'function' ? detector : null;
+    if (activeVideo) updatePhase(phase === 'initializing' ? 'content' : phase);
+  }
+
+  function setPhase(nextPhase) {
+    if (!VALID_PHASES.has(nextPhase) || nextPhase === phase) return false;
+    phase = nextPhase;
+    post({ type: 'phase', source: 'page', phase });
+    return true;
+  }
+
+  function snapshot() {
+    return {
+      ready: Boolean(activeVideo),
+      phase,
+      isPlaying: activeVideo ? !activeVideo.paused && !activeVideo.ended : false,
+      position: activeVideo && finiteNumber(activeVideo.currentTime)
+        ? activeVideo.currentTime
+        : 0,
+      playbackRate: activeVideo && finiteNumber(activeVideo.playbackRate)
+        ? activeVideo.playbackRate
+        : 1,
+    };
+  }
+
+  async function command(input) {
+    if (!input || typeof input !== 'object') return false;
+    const commandId = input.id;
+    const type = input.type;
+    if (
+      typeof commandId !== 'string' ||
+      commandId.length === 0 ||
+      commandId.length > MAX_COMMAND_ID_LENGTH
+    ) {
+      return false;
+    }
+    if (!activeVideo) {
+      emitCommandError(commandId, 'No active HTML media element');
+      return false;
+    }
+    const video = activeVideo;
+
+    try {
+      if (type === 'play') {
+        rememberCommand('play', commandId);
+        await video.play();
+        setTimeout(() => {
+          acknowledgeIfPending('play', commandId, {
+            position: finiteNumber(video.currentTime)
+              ? video.currentTime
+              : undefined,
+          });
+        }, 100);
+        return true;
+      }
+
+      if (type === 'pause') {
+        rememberCommand('pause', commandId);
+        video.pause();
+        setTimeout(() => {
+          acknowledgeIfPending('pause', commandId, {
+            position: finiteNumber(video.currentTime)
+              ? video.currentTime
+              : undefined,
+          });
+        }, 100);
+        return true;
+      }
+
+      if (type === 'seek') {
+        if (
+          !finiteNumber(input.position) ||
+          input.position < 0 ||
+          input.position > MAX_POSITION
+        ) {
+          emitCommandError(commandId, 'Invalid seek position');
+          return false;
+        }
+        rememberCommand('seek', commandId);
+        video.currentTime = input.position;
+        setTimeout(() => {
+          acknowledgeIfPending('seek', commandId, {
+            position: finiteNumber(video.currentTime)
+              ? video.currentTime
+              : input.position,
+          });
+        }, 1500);
+        return true;
+      }
+
+      if (type === 'rate') {
+        if (
+          !finiteNumber(input.playbackRate) ||
+          input.playbackRate < MIN_RATE ||
+          input.playbackRate > MAX_RATE
+        ) {
+          emitCommandError(commandId, 'Invalid playback rate');
+          return false;
+        }
+        rememberCommand('rate', commandId);
+        video.playbackRate = input.playbackRate;
+        setTimeout(() => {
+          acknowledgeIfPending('rate', commandId, {
+            playbackRate: finiteNumber(video.playbackRate)
+              ? video.playbackRate
+              : input.playbackRate,
+          });
+        }, 100);
+        return true;
+      }
+
+      emitCommandError(commandId, 'Unsupported playback command');
+      return false;
+    } catch (error) {
+      pendingCommands.delete(type);
+      emitCommandError(commandId, error);
+      return false;
+    }
+  }
+
+  function destroy() {
+    if (refreshTimer !== null) clearInterval(refreshTimer);
+    if (observer) observer.disconnect();
+    document.removeEventListener('pointerdown', rememberUserGesture, true);
+    document.removeEventListener('touchstart', rememberUserGesture, true);
+    document.removeEventListener('keydown', rememberUserGesture, true);
+    unbindVideo();
+    pendingCommands.clear();
+    queuedMessages.length = 0;
+    transport = null;
+    refreshTimer = null;
+    observer = null;
+    started = false;
+  }
+
+  window.__synctvPlaybackBridge = Object.freeze({
+    version: VERSION,
+    setTransport,
+    setPhaseDetector,
+    setPhase,
+    start,
+    refresh,
+    snapshot,
+    command,
+    destroy,
+  });
+})();''';
+
+String buildWebPlaybackCommandScript(WebPlaybackCommand command) {
+  final arguments = jsonEncode(command.toArguments());
+  return 'window.__synctvPlaybackBridge?.command($arguments);';
+}
+
+String buildWebPlaybackBridgeStartScript({
+  required String transportFunctionExpression,
+  String? phaseDetectorFunctionExpression,
+}) {
+  final script = StringBuffer()
+    ..write('window.__synctvPlaybackBridge?.setTransport(')
+    ..write(transportFunctionExpression)
+    ..write(');');
+  if (phaseDetectorFunctionExpression != null) {
+    script
+      ..write('window.__synctvPlaybackBridge?.setPhaseDetector(')
+      ..write(phaseDetectorFunctionExpression)
+      ..write(');');
+  }
+  script.write('window.__synctvPlaybackBridge?.start();');
+  return script.toString();
+}
