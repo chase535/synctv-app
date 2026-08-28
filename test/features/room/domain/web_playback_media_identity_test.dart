@@ -91,45 +91,45 @@ void main() {
     test('normalizes Tencent mobile app share playback URLs', () {
       final identity = WebPlaybackMediaIdentity.tryParse(
         Uri.parse(
-          'https://m.v.qq.com/x/m/play?lid=402&cid=mzc00200cf43gaf&vid=7uHwAjgHuPJ&url_from=share&share_from=copy',
+          'https://m.v.qq.com/x/m/play?lid=402&cid=test_collection_1&vid=test_video_1&url_from=share&share_from=copy',
         ),
       );
 
       expect(identity?.kind, WebPlaybackMediaKind.tencentVideo);
-      expect(identity?.collectionId, 'mzc00200cf43gaf');
-      expect(identity?.mediaId, '7uHwAjgHuPJ');
+      expect(identity?.collectionId, 'test_collection_1');
+      expect(identity?.mediaId, 'test_video_1');
       expect(
         identity?.canonicalUri.toString(),
-        'https://v.qq.com/x/cover/mzc00200cf43gaf/7uHwAjgHuPJ.html',
+        'https://v.qq.com/x/cover/test_collection_1/test_video_1.html',
       );
     });
 
     test('normalizes legacy Tencent mobile play.html URLs', () {
       final identity = WebPlaybackMediaIdentity.tryParse(
         Uri.parse(
-          'https://m.v.qq.com/play.html?cid=&vid=t060641781b&url_from=share',
+          'https://m.v.qq.com/play.html?cid=&vid=test_video_2&url_from=share',
         ),
       );
 
-      expect(identity?.mediaId, 't060641781b');
+      expect(identity?.mediaId, 'test_video_2');
       expect(
         identity?.canonicalUri.toString(),
-        'https://v.qq.com/x/page/t060641781b.html',
+        'https://v.qq.com/x/page/test_video_2.html',
       );
     });
 
     test('uses vid query parameter on Tencent cover links when present', () {
       final identity = WebPlaybackMediaIdentity.tryParse(
         Uri.parse(
-          'https://m.v.qq.com/x/cover/nhtfh14i9y1egge.html?vid=d00249ld45q',
+          'https://m.v.qq.com/x/cover/test_collection_2.html?vid=test_video_3',
         ),
       );
 
-      expect(identity?.collectionId, 'nhtfh14i9y1egge');
-      expect(identity?.mediaId, 'd00249ld45q');
+      expect(identity?.collectionId, 'test_collection_2');
+      expect(identity?.mediaId, 'test_video_3');
       expect(
         identity?.canonicalUri.toString(),
-        'https://v.qq.com/x/cover/nhtfh14i9y1egge/d00249ld45q.html',
+        'https://v.qq.com/x/cover/test_collection_2/test_video_3.html',
       );
     });
 
@@ -181,12 +181,14 @@ void main() {
     test('keeps share short links unresolved until redirect resolution', () {
       expect(
         WebPlaybackMediaIdentity.tryParse(
-          Uri.parse('https://qy.net/4aJQrYo-ef'),
+          Uri.parse('https://qy.net/TestShare_123'),
         ),
         isNull,
       );
       expect(
-        WebPlaybackMediaIdentity.tryParse(Uri.parse('https://url.cn/example')),
+        WebPlaybackMediaIdentity.tryParse(
+          Uri.parse('https://url.cn/TestShare_123'),
+        ),
         isNull,
       );
     });
