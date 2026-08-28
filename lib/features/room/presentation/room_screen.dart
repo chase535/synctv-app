@@ -61,6 +61,7 @@ import 'package:synctv_app/features/media_p2p/application/p2p_media_preferences_
 import 'package:synctv_app/features/media_p2p/application/p2p_media_runtime.dart';
 import 'package:synctv_app/features/room/application/room_realtime_channel.dart';
 import 'package:synctv_app/core/presentation/notifications/app_notifications.dart';
+import 'package:synctv_app/core/web/official_site_login_client.dart';
 import 'package:synctv_app/core/presentation/image/local_image_picker.dart';
 import 'package:synctv_app/core/presentation/dialogs/app_dialogs.dart';
 import 'package:synctv_app/core/presentation/media_provider_brand.dart';
@@ -2895,10 +2896,37 @@ class _RoomScreenState extends State<RoomScreen>
     await _applyWebPlaybackStatus(status, rawUri, applySync: true);
   }
 
+  Future<void> _openCurrentWebPlaybackLogin() async {
+    final provider = _webPlaybackProvider;
+    const loginClient = OfficialSiteLoginClient();
+    if (provider == null || !loginClient.supported) {
+      if (mounted) {
+        AppNotifications.showWarning(context, '当剎平台暂不支持官方网页登录');
+      }
+      return;
+    }
+    try {
+      await loginClient.open(provider);
+      if (!mounted) return;
+      final providerName = provider == WebPlaybackProvider.iqiyi
+          ? '爱奇艺'
+          : '腾讯视频';
+      AppNotifications.showInfo(
+        context,
+        '已打开 $providerName 官方登录页；登录完成后切回官方播放器即可继续播放。',
+      );
+    } catch (error) {
+      if (mounted) {
+        AppNotifications.showError(context, '打开官方版登录页失败：$error');
+      }
+    }
+  }
+
   Widget _buildWebPlaybackState() {
     final providerName = _webPlaybackProvider == WebPlaybackProvider.iqiyi
         ? '爱奇艺'
         : '腾讯视频';
+    final loginSupported = const OfficialSiteLoginClient().supported;
     final snapshot = _webPlaybackSnapshot;
     final phaseLabel = switch (snapshot?.phase) {
       WebPlaybackPhase.initializing || null => '正在初始化官方播放器',
@@ -2961,8 +2989,17 @@ class _RoomScreenState extends State<RoomScreen>
                 label: Text(session == null ? '重新打开官方播放器' : '切回官方播放器'),
               ),
             const SizedBox(height: 12),
+            OutlinedButton.icon(
+              key: const Key('room_official_web_login_button'),
+              onPressed: loginSupported
+                  ? () => unawaited(_openCurrentWebPlaybackLogin())
+                  : null,
+              icon: const Icon(Icons.login_rounded),
+              label: Text('登录 $providerName 账号'),
+            ),
+            const SizedBox(height: 12),
             const Text(
-              '登录和会员状态仅保存在本机官方网页环境中；SyncTV 不读取或同步 Cookie、凭证或 DRM 信息。',
+              '登录窗口与官方播放器使用同一本机 WebView2 配置目录；房间同步只同步播放状态，不会向其他成员分发账号 Cookie、验证码或 DRM 信息。',
               textAlign: TextAlign.center,
             ),
           ],
