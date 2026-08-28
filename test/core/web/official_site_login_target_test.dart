@@ -25,5 +25,13 @@ void main() {
         );
       },
     );
+
+    test('all login entry points are HTTPS and contain no embedded credentials', () {
+      for (final provider in WebPlaybackProvider.values) {
+        final uri = officialSiteLoginEntryUri(provider);
+        expect(uri.scheme, 'https');
+        expect(uri.userInfo, isEmpty);
+      }
+    });
   });
 }
