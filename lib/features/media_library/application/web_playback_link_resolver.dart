@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:http/http.dart' as http;
-import 'package:synctv_app/features/room/domain/web_playback_media_identity.dart';
-import 'package:synctv_app/features/room/domain/web_playback_site.dart';
+import 'package:synctv_app/contracts/web_playback_media_identity.dart';
+import 'package:synctv_app/contracts/web_playback_site.dart';
 
 final class WebPlaybackLinkResolutionException implements Exception {
   const WebPlaybackLinkResolutionException(this.message);
