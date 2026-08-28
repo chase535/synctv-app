@@ -61,6 +61,25 @@ void main() {
       );
     });
 
+    test('command errors include the current playback phase', () {
+      expect(
+        webPlaybackBridgeBootstrapScript,
+        contains("Object.assign(\n        {\n          type: 'error'"),
+      );
+      expect(webPlaybackBridgeBootstrapScript, contains('phasePayload()'));
+    });
+
+    test('publishes advertisement-kind changes within the same phase', () {
+      expect(
+        webPlaybackBridgeBootstrapScript,
+        contains('normalizedAdvertisementKind === advertisementKind'),
+      );
+      expect(
+        webPlaybackBridgeBootstrapScript,
+        contains('advertisementKind = normalizedAdvertisementKind'),
+      );
+    });
+
     test(
       'does not publish ended when the active phase is a blocking advertisement',
       () {

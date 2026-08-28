@@ -87,9 +87,7 @@ void main() {
 
     test('matches the same episode across Tencent route variants', () {
       final cover = WebPlaybackMediaIdentity.tryParse(
-        Uri.parse(
-          'https://v.qq.com/x/cover/nhtfh14i9y1egge/d00249ld45q.html',
-        ),
+        Uri.parse('https://v.qq.com/x/cover/nhtfh14i9y1egge/d00249ld45q.html'),
       );
       final page = WebPlaybackMediaIdentity.tryParse(
         Uri.parse('https://v.qq.com/x/page/d00249ld45q.html'),

@@ -291,12 +291,17 @@ const String webPlaybackBridgeBootstrapScript = r'''(() => {
   function emitCommandError(commandId, error) {
     if (typeof commandId !== 'string' || commandId.length === 0) return;
     if (commandId.length > MAX_COMMAND_ID_LENGTH) return;
-    post({
-      type: 'error',
-      source: 'command',
-      commandId,
-      error: clampText(error, MAX_ERROR_LENGTH) || 'Playback command failed',
-    });
+    post(
+      Object.assign(
+        {
+          type: 'error',
+          source: 'command',
+          commandId,
+          error: clampText(error, MAX_ERROR_LENGTH) || 'Playback command failed',
+        },
+        phasePayload(),
+      ),
+    );
   }
 
   function collectVideos(rootDocument, result, visitedDocuments) {
@@ -618,20 +623,23 @@ const String webPlaybackBridgeBootstrapScript = r'''(() => {
 
   function setPhase(nextPhase, nextAdvertisementKind) {
     if (!VALID_PHASES.has(nextPhase)) return false;
-    if (
+    const normalizedAdvertisementKind =
       nextPhase === 'advertisement' ||
       nextPhase === 'overlayAdvertisement'
+        ? VALID_AD_KINDS.has(nextAdvertisementKind)
+          ? nextAdvertisementKind
+          : nextPhase === 'overlayAdvertisement'
+            ? 'overlay'
+            : 'unknown'
+        : null;
+    if (
+      nextPhase === phase &&
+      normalizedAdvertisementKind === advertisementKind
     ) {
-      advertisementKind = VALID_AD_KINDS.has(nextAdvertisementKind)
-        ? nextAdvertisementKind
-        : nextPhase === 'overlayAdvertisement'
-          ? 'overlay'
-          : 'unknown';
-    } else {
-      advertisementKind = null;
+      return true;
     }
-    if (nextPhase === phase) return true;
     phase = nextPhase;
+    advertisementKind = normalizedAdvertisementKind;
     post(Object.assign({ type: 'phase', source: 'page' }, phasePayload()));
     return true;
   }
