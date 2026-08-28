@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:synctv_app/contracts/discovered_source.dart';
 import 'package:synctv_app/core/presentation/notifications/app_notifications.dart';
 import 'package:synctv_app/core/presentation/widgets/app_form_controls.dart';
+import 'package:synctv_app/core/web/official_site_login_client.dart';
 import 'package:synctv_app/features/media_library/application/web_playback_link_resolver.dart';
 import 'package:synctv_app/features/providers/presentation/provider_gateway_scope.dart';
 import 'package:synctv_app/features/room/domain/web_playback_site.dart';
@@ -34,7 +35,9 @@ class _OfficialWebPlaybackAddMediaFormState
   final _urlController = TextEditingController();
   final _nameController = TextEditingController();
   final _linkResolver = WebPlaybackLinkResolver();
+  final _loginClient = const OfficialSiteLoginClient();
   bool _loading = false;
+  bool _openingLogin = false;
 
   String get _providerName => switch (widget.provider) {
     WebPlaybackProvider.iqiyi => '爱奇艺',
@@ -45,6 +48,11 @@ class _OfficialWebPlaybackAddMediaFormState
     WebPlaybackProvider.iqiyi => '支持 iqiyi.com / qy.net 等爱奇艺官方网页、移动端及分享链接',
     WebPlaybackProvider.tencentVideo =>
       '支持 v.qq.com / m.v.qq.com 等腾讯视频官方网页、移动端及分享链接',
+  };
+
+  String get _loginButtonLabel => switch (widget.provider) {
+    WebPlaybackProvider.iqiyi => '登录爱奇艺（优先手机号验证码）',
+    WebPlaybackProvider.tencentVideo => '登录腾讯视频（QQ / 微信）',
   };
 
   @override
@@ -60,6 +68,28 @@ class _OfficialWebPlaybackAddMediaFormState
           _nameController.text.trim().isNotEmpty,
     );
     if (mounted) setState(() {});
+  }
+
+  Future<void> _openLogin() async {
+    if (_openingLogin || !_loginClient.supported) return;
+    setState(() => _openingLogin = true);
+    try {
+      await _loginClient.open(widget.provider);
+      if (!mounted) return;
+      final message = switch (widget.provider) {
+        WebPlaybackProvider.iqiyi =>
+          '已打开爱奇艺官方登录页。可直接使用手机号短信验证码，也可使用页面提供的其他官方登录方式。',
+        WebPlaybackProvider.tencentVideo =>
+          '已打开腾讯视频官方登录页。可使用页面提供的 QQ、微信等官方登录方式。',
+      };
+      AppNotifications.showSuccess(context, message);
+    } catch (error) {
+      if (mounted) {
+        AppNotifications.showError(context, '打开 $_providerName 登录页失败：$error');
+      }
+    } finally {
+      if (mounted) setState(() => _openingLogin = false);
+    }
   }
 
   Future<void> _submit() async {
@@ -115,6 +145,8 @@ class _OfficialWebPlaybackAddMediaFormState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final canSubmit = _urlController.text.trim().isNotEmpty && !_loading;
+    final canOpenLogin =
+        _loginClient.supported && !_openingLogin && !_loading;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -160,11 +192,26 @@ class _OfficialWebPlaybackAddMediaFormState
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text(
-                    '支持官网、移动端和官方分享/短链接；分享链接会先安全解析为具体单集或视频的官方播放页。使用本机登录状态播放，SyncTV 只同步播放/暂停、进度、倍速和媒体身份；不会读取或同步 Cookie、会员凭证、DRM 密钥，也不会绕过网站广告。',
+                    '支持官网、移动端和官方分享/短链接；分享链接会先安全解析为具体单集或视频的官方播放页。登录窗口与播放器复用同一本机 WebView2 配置目录，登录状态由官方网站直接保存；SyncTV 不读取或同步 Cookie、验证码、账号凭证、会员凭证或 DRM 信息，也不会绕过网站广告。',
                   ),
                 ),
               ],
             ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            key: ValueKey('${widget.provider.name}-official-login'),
+            onPressed: canOpenLogin ? _openLogin : null,
+            icon: _openingLogin
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.login_rounded),
+            label: Text(_loginButtonLabel),
           ),
         ),
         const Spacer(),
