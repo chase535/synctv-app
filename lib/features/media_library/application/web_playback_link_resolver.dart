@@ -251,8 +251,8 @@ final class WebPlaybackLinkResolver {
         if (target != null) return target;
       }
 
-      final property =
-          (attributes['property'] ?? attributes['name'])?.toLowerCase();
+      final property = (attributes['property'] ?? attributes['name'])
+          ?.toLowerCase();
       if (property == 'og:url' || property == 'twitter:url') {
         final target = attributes['content']?.trim();
         if (target != null && target.isNotEmpty) return target;
@@ -268,10 +268,7 @@ final class WebPlaybackLinkResolver {
       }
     }
 
-    for (final pattern in [
-      _locationCallPattern,
-      _locationAssignmentPattern,
-    ]) {
+    for (final pattern in [_locationCallPattern, _locationAssignmentPattern]) {
       final match = pattern.firstMatch(body);
       final target = match?.group(2)?.trim();
       if (target != null && target.isNotEmpty) return target;
@@ -296,8 +293,9 @@ final class WebPlaybackLinkResolver {
   ) {
     final decodedBody = _decodeEmbeddedTarget(body);
     for (final match in _urlInText.allMatches(decodedBody)) {
-      var candidate = match.group(0);
-      if (candidate == null || candidate.isEmpty) continue;
+      final matchedCandidate = match.group(0);
+      if (matchedCandidate == null || matchedCandidate.isEmpty) continue;
+      var candidate = matchedCandidate;
 
       while (candidate.isNotEmpty &&
           '''"'<>),;]}'''.contains(candidate[candidate.length - 1])) {
@@ -310,7 +308,8 @@ final class WebPlaybackLinkResolver {
       if (normalized == null) continue;
 
       final identity = WebPlaybackMediaIdentity.tryParse(normalized);
-      if (identity?.provider == policy.provider && identity?.isEpisode == true) {
+      if (identity?.provider == policy.provider &&
+          identity?.isEpisode == true) {
         return identity!.canonicalUri;
       }
     }

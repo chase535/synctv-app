@@ -90,27 +90,30 @@ window.location.replace("https:\/\/www.iqiyi.com\/iex\/v_test_js_video_1.html?vf
       );
     });
 
-    test('accepts iqiyi.cn official share links as resolution inputs', () async {
-      final client = MockClient((request) async {
-        expect(request.url.toString(), 'https://iqiyi.cn/TestShare_123');
-        return http.Response(
-          '',
-          302,
-          headers: {
-            'location': 'https://www.iqiyi.com/v_test_cn_video_1.html',
-          },
-          request: request,
+    test(
+      'accepts iqiyi.cn official share links as resolution inputs',
+      () async {
+        final client = MockClient((request) async {
+          expect(request.url.toString(), 'https://iqiyi.cn/TestShare_123');
+          return http.Response(
+            '',
+            302,
+            headers: {
+              'location': 'https://www.iqiyi.com/v_test_cn_video_1.html',
+            },
+            request: request,
+          );
+        });
+        final resolver = WebPlaybackLinkResolver(client: client);
+
+        final uri = await resolver.resolve(
+          'https://iqiyi.cn/TestShare_123',
+          provider: WebPlaybackProvider.iqiyi,
         );
-      });
-      final resolver = WebPlaybackLinkResolver(client: client);
 
-      final uri = await resolver.resolve(
-        'https://iqiyi.cn/TestShare_123',
-        provider: WebPlaybackProvider.iqiyi,
-      );
-
-      expect(uri.toString(), 'https://www.iqiyi.com/v_test_cn_video_1.html');
-    });
+        expect(uri.toString(), 'https://www.iqiyi.com/v_test_cn_video_1.html');
+      },
+    );
 
     test('extracts an official link from copied share text', () async {
       final client = MockClient((request) async {
