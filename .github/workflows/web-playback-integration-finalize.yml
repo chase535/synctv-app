@@ -202,7 +202,7 @@ jobs:
               'lib/features/room/application/web_playback_coordinator.dart',
               '      _onError?.call(error, stackTrace);\n',
               '      if (!_closed) _onError?.call(error, stackTrace);\n',
-              3,
+              4,
               'suppress teardown errors',
           )
           replace_once(
