@@ -19,6 +19,12 @@ final class WebPlaybackMediaIdentity {
 
   bool get isEpisode => mediaId != null;
 
+  bool isSameEpisodeAs(WebPlaybackMediaIdentity other) =>
+      isEpisode &&
+      other.isEpisode &&
+      provider == other.provider &&
+      mediaId == other.mediaId;
+
   String get stableKey =>
       '${provider.name}:${kind.name}:${collectionId ?? ''}:${mediaId ?? ''}';
 

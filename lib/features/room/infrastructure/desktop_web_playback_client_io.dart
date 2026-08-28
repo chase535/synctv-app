@@ -13,6 +13,7 @@ import 'package:synctv_app/features/room/domain/web_playback_adapter_registry.da
 import 'package:synctv_app/features/room/domain/web_playback_bridge_message.dart';
 import 'package:synctv_app/features/room/domain/web_playback_bridge_script.dart';
 import 'package:synctv_app/features/room/domain/web_playback_command.dart';
+import 'package:synctv_app/features/room/domain/web_playback_media_identity.dart';
 import 'package:synctv_app/features/room/domain/web_playback_navigation.dart';
 import 'package:synctv_app/features/room/domain/web_playback_phase.dart';
 import 'package:synctv_app/features/room/domain/web_playback_runtime.dart';
@@ -103,11 +104,13 @@ final class _WindowsWebPlaybackSession implements WebPlaybackSession {
   final Completer<void> _closedCompleter = Completer<void>();
 
   Uri? _currentUri;
+  WebPlaybackMediaIdentity? _expectedMediaIdentity;
+  Future<void> _webMessageTail = Future<void>.value();
   int _navigationGeneration = 0;
   bool _closed = false;
 
   void initialize(Uri uri) {
-    _ensureAllowedNavigation(uri);
+    _expectedMediaIdentity = _requireRoomMediaIdentity(uri);
     _currentUri = uri;
     _webview.addScriptToExecuteOnDocumentCreated(
       webPlaybackBridgeBootstrapScript,
@@ -142,6 +145,7 @@ final class _WindowsWebPlaybackSession implements WebPlaybackSession {
     _throwIfClosed();
     final uri = _currentUri;
     if (uri == null || !_adapter.sitePolicy.allows(uri)) return false;
+    if (!await _pageMatchesExpectedMedia()) return false;
     _runtime.rememberCommand(command);
     final result = await _webview.evaluateJavaScript(
       buildWebPlaybackCommandScript(command),
@@ -154,6 +158,7 @@ final class _WindowsWebPlaybackSession implements WebPlaybackSession {
     _throwIfClosed();
     final uri = _currentUri;
     if (uri == null || !_adapter.sitePolicy.allows(uri)) return null;
+    if (!await _pageMatchesExpectedMedia()) return null;
 
     final result = await _webview.evaluateJavaScript(
       'JSON.stringify(window.__synctvPlaybackBridge?.snapshot() ?? null);',
@@ -164,11 +169,13 @@ final class _WindowsWebPlaybackSession implements WebPlaybackSession {
   @override
   Future<void> navigate(Uri uri) async {
     _throwIfClosed();
-    _ensureAllowedNavigation(uri);
-    if (_currentUri == uri) {
+    final identity = _requireRoomMediaIdentity(uri);
+    if (_currentUri == uri &&
+        _expectedMediaIdentity?.isSameEpisodeAs(identity) == true) {
       await bringToForeground();
       return;
     }
+    _expectedMediaIdentity = identity;
     _currentUri = uri;
     _runtime.resetForNavigation();
     _navigationGeneration += 1;
@@ -193,6 +200,7 @@ final class _WindowsWebPlaybackSession implements WebPlaybackSession {
     if (uri == null) return false;
     final disposition = _adapter.classifyNavigation(uri, isMainFrame: true);
     if (!disposition.isAllowed) return false;
+    if (disposition.canUseBridge && !_matchesExpectedMedia(uri)) return false;
 
     if (_currentUri != uri) {
       _currentUri = uri;
@@ -213,8 +221,11 @@ final class _WindowsWebPlaybackSession implements WebPlaybackSession {
     if (uri == null || !_adapter.sitePolicy.allows(uri) || _closed) return;
 
     try {
+      if (!await _pageMatchesExpectedMedia()) return;
+      if (_closed || generation != _navigationGeneration) return;
       await _webview.evaluateJavaScript(webPlaybackBridgeBootstrapScript);
       if (_closed || generation != _navigationGeneration) return;
+      if (!await _pageMatchesExpectedMedia()) return;
       await _webview.evaluateJavaScript(
         buildWebPlaybackBridgeStartScript(
           bridgeToken: _bridgeToken,
@@ -231,19 +242,53 @@ final class _WindowsWebPlaybackSession implements WebPlaybackSession {
 
   void _onWebMessage(String raw) {
     if (_closed) return;
-    final update = _runtime.handleRawMessage(raw);
-    if (update != null) _updates.add(update);
+    _webMessageTail = _webMessageTail.then((_) => _handleWebMessage(raw));
   }
 
-  void _ensureAllowedNavigation(Uri uri) {
+  Future<void> _handleWebMessage(String raw) async {
+    if (_closed) return;
+    try {
+      if (!await _pageMatchesExpectedMedia()) return;
+      if (_closed) return;
+      final update = _runtime.handleRawMessage(raw);
+      if (update != null) _updates.add(update);
+    } on Object catch (error, stackTrace) {
+      if (!_closed) _updates.addError(error, stackTrace);
+    }
+  }
+
+  WebPlaybackMediaIdentity _requireRoomMediaIdentity(Uri uri) {
     final disposition = _adapter.classifyNavigation(uri, isMainFrame: true);
-    if (!disposition.isAllowed) {
+    final identity = WebPlaybackMediaIdentity.tryParse(uri);
+    if (!disposition.canUseBridge ||
+        identity == null ||
+        !identity.isEpisode ||
+        identity.provider != _adapter.provider) {
       throw ArgumentError.value(
         uri,
         'uri',
-        'Blocked web playback navigation target',
+        'Web playback navigation must target a supported room media episode',
       );
     }
+    return identity;
+  }
+
+  bool _matchesExpectedMedia(Uri uri) {
+    final expected = _expectedMediaIdentity;
+    final candidate = WebPlaybackMediaIdentity.tryParse(uri);
+    return expected != null &&
+        candidate != null &&
+        candidate.isSameEpisodeAs(expected);
+  }
+
+  Future<bool> _pageMatchesExpectedMedia() async {
+    if (_closed) return false;
+    final result = await _webview.evaluateJavaScript('window.location.href');
+    final rawUrl = _parseJavaScriptString(result);
+    final uri = rawUrl == null ? null : Uri.tryParse(rawUrl);
+    if (uri == null || !_matchesExpectedMedia(uri)) return false;
+    _currentUri = uri;
+    return true;
   }
 
   void _throwIfClosed() {
@@ -271,6 +316,17 @@ final class _WindowsWebPlaybackSession implements WebPlaybackSession {
       return false;
     }
     return false;
+  }
+
+  static String? _parseJavaScriptString(String? result) {
+    if (result == null || result.isEmpty || result == 'null') return null;
+    try {
+      final decoded = jsonDecode(result);
+      if (decoded is String) return decoded;
+    } on FormatException {
+      if (Uri.tryParse(result)?.hasScheme == true) return result;
+    }
+    return null;
   }
 
   WebPlaybackSnapshot? _decodeSnapshot(String? result) {

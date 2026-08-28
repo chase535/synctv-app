@@ -85,6 +85,41 @@ void main() {
       expect(first?.canonicalUri, second?.canonicalUri);
     });
 
+    test('matches the same episode across Tencent route variants', () {
+      final cover = WebPlaybackMediaIdentity.tryParse(
+        Uri.parse(
+          'https://v.qq.com/x/cover/nhtfh14i9y1egge/d00249ld45q.html',
+        ),
+      );
+      final page = WebPlaybackMediaIdentity.tryParse(
+        Uri.parse('https://v.qq.com/x/page/d00249ld45q.html'),
+      );
+
+      expect(cover, isNotNull);
+      expect(page, isNotNull);
+      expect(cover!.isSameEpisodeAs(page!), isTrue);
+      expect(page.isSameEpisodeAs(cover), isTrue);
+    });
+
+    test('does not match different, collection-only, or cross-site media', () {
+      final first = WebPlaybackMediaIdentity.tryParse(
+        Uri.parse('https://v.qq.com/x/page/d00249ld45q.html'),
+      )!;
+      final different = WebPlaybackMediaIdentity.tryParse(
+        Uri.parse('https://v.qq.com/x/page/z0044abcd12.html'),
+      )!;
+      final collection = WebPlaybackMediaIdentity.tryParse(
+        Uri.parse('https://v.qq.com/x/cover/nhtfh14i9y1egge.html'),
+      )!;
+      final iqiyi = WebPlaybackMediaIdentity.tryParse(
+        Uri.parse('https://www.iqiyi.com/v_d00249ld45q.html'),
+      )!;
+
+      expect(first.isSameEpisodeAs(different), isFalse);
+      expect(first.isSameEpisodeAs(collection), isFalse);
+      expect(first.isSameEpisodeAs(iqiyi), isFalse);
+    });
+
     test('rejects insecure, off-site, and unsupported paths', () {
       expect(
         WebPlaybackMediaIdentity.tryParse(
