@@ -7,7 +7,12 @@ const String webPlaybackBridgeBootstrapScript = r'''(() => {
   const VERSION = 1;
   const PRIVILEGED_ORIGINS = new Set([
     'https://www.iqiyi.com',
+    'https://m.iqiyi.com',
+    'https://iqiyi.com',
+    'https://www.qiyi.com',
+    'https://qiyi.com',
     'https://v.qq.com',
+    'https://m.v.qq.com',
   ]);
   if (
     window.top !== window.self ||
@@ -304,42 +309,83 @@ const String webPlaybackBridgeBootstrapScript = r'''(() => {
     );
   }
 
-  function collectVideos(rootDocument, result, visitedDocuments) {
-    if (!rootDocument || visitedDocuments.has(rootDocument)) return;
-    visitedDocuments.add(rootDocument);
+  function collectVideosFromRoot(
+    root,
+    result,
+    visitedRoots,
+    visitedDocuments,
+  ) {
+    if (!root || visitedRoots.has(root)) return;
+    visitedRoots.add(root);
 
     try {
-      for (const video of rootDocument.querySelectorAll('video')) {
+      for (const video of root.querySelectorAll('video')) {
         result.push(video);
       }
-      for (const frame of rootDocument.querySelectorAll('iframe')) {
+      for (const element of root.querySelectorAll('*')) {
+        if (element.shadowRoot) {
+          collectVideosFromRoot(
+            element.shadowRoot,
+            result,
+            visitedRoots,
+            visitedDocuments,
+          );
+        }
+      }
+      for (const frame of root.querySelectorAll('iframe')) {
         try {
           if (frame.contentDocument) {
-            collectVideos(frame.contentDocument, result, visitedDocuments);
+            collectVideos(
+              frame.contentDocument,
+              result,
+              visitedDocuments,
+              visitedRoots,
+            );
           }
         } catch (_) {
           // Cross-origin frames are intentionally ignored.
         }
       }
     } catch (_) {
-      // A detached document may become inaccessible during SPA navigation.
+      // A detached document or shadow root may become inaccessible during SPA
+      // navigation. The next refresh will rescan the active document tree.
     }
+  }
+
+  function collectVideos(
+    rootDocument,
+    result,
+    visitedDocuments,
+    visitedRoots,
+  ) {
+    if (!rootDocument || visitedDocuments.has(rootDocument)) return;
+    visitedDocuments.add(rootDocument);
+    collectVideosFromRoot(
+      rootDocument,
+      result,
+      visitedRoots,
+      visitedDocuments,
+    );
   }
 
   function scoreVideo(video) {
     try {
       const rect = video.getBoundingClientRect();
       const style = video.ownerDocument.defaultView.getComputedStyle(video);
-      if (
+      const hidden =
         style.display === 'none' ||
         style.visibility === 'hidden' ||
-        Number(style.opacity) === 0
-      ) {
+        Number(style.opacity) === 0;
+      const area = Math.max(0, rect.width) * Math.max(0, rect.height);
+      const hasMediaState =
+        Boolean(video.currentSrc) ||
+        video.readyState >= 1 ||
+        (!video.paused && !video.ended);
+      if ((hidden || area <= 0) && !hasMediaState) {
         return Number.NEGATIVE_INFINITY;
       }
-      const area = Math.max(0, rect.width) * Math.max(0, rect.height);
-      if (area <= 0) return Number.NEGATIVE_INFINITY;
       let score = area;
+      if (hidden || area <= 0) score -= 1e8;
       if (!video.paused && !video.ended) score += 1e9;
       if (video.readyState >= 2) score += 1e7;
       if (video.currentSrc) score += 1e6;
@@ -351,7 +397,7 @@ const String webPlaybackBridgeBootstrapScript = r'''(() => {
 
   function findBestVideo() {
     const videos = [];
-    collectVideos(document, videos, new Set());
+    collectVideos(document, videos, new Set(), new Set());
     let best = null;
     let bestScore = Number.NEGATIVE_INFINITY;
     for (const video of videos) {
