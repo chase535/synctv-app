@@ -114,8 +114,9 @@ jobs:
                   '    if (_closed) return;',
                   '    await _webview.close();',
                   '    await _webview.onClose;',
+                  '    _finishClosed();',
               ),
-              'await webview close request',
+              'await and finalize webview close request',
           )
 
           tracker_test = 'test/features/room/domain/web_playback_command_tracker_test.dart'
