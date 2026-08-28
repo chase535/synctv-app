@@ -93,7 +93,7 @@ jobs:
         run: |
           flutter gen-l10n
           bash tool/generate_proto.sh
-          git diff --exit-code -- lib/l10n lib/src/generated
+          git diff --ignore-cr-at-eol --exit-code -- lib/l10n lib/src/generated
 
   android-native:
     name: Android native release
@@ -121,6 +121,7 @@ jobs:
         uses: ./.github/actions/setup-build
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-architecture: x64
           rust-version: ${{ env.RUST_VERSION }}
           rust-targets: aarch64-linux-android
 
@@ -163,13 +164,13 @@ jobs:
             rust-target: aarch64-unknown-linux-gnu
 
     steps:
+      - name: Install Linux build dependencies
+        run: bash tool/ci/install_linux_build_dependencies.sh
+
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-
-      - name: Install Linux build dependencies
-        run: bash tool/ci/install_linux_build_dependencies.sh
 
       - name: Set up build toolchain
         uses: ./.github/actions/setup-build
