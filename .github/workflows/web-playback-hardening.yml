@@ -1,0 +1,166 @@
+name: Web playback hardening
+
+on:
+  push:
+    branches: ["feat/iqiyi-tencent-watch-together"]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: feat/iqiyi-tencent-watch-together
+
+      - name: Apply guarded hardening fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          bridge = Path('lib/features/room/domain/web_playback_bridge_script.dart')
+          text = bridge.read_text()
+
+          old_error = """    post({
+                type: 'error',
+                source: 'command',
+                commandId,
+                error: clampText(error, MAX_ERROR_LENGTH) || 'Playback command failed',
+              });"""
+          new_error = """    post(
+                Object.assign(
+                  {
+                    type: 'error',
+                    source: 'command',
+                    commandId,
+                    error: clampText(error, MAX_ERROR_LENGTH) || 'Playback command failed',
+                  },
+                  phasePayload(),
+                ),
+              );"""
+          if text.count(old_error) != 1:
+              raise SystemExit('emitCommandError anchor mismatch')
+          text = text.replace(old_error, new_error)
+
+          old_phase = """  function setPhase(nextPhase, nextAdvertisementKind) {
+              if (!VALID_PHASES.has(nextPhase)) return false;
+              if (
+                nextPhase === 'advertisement' ||
+                nextPhase === 'overlayAdvertisement'
+              ) {
+                advertisementKind = VALID_AD_KINDS.has(nextAdvertisementKind)
+                  ? nextAdvertisementKind
+                  : nextPhase === 'overlayAdvertisement'
+                    ? 'overlay'
+                    : 'unknown';
+              } else {
+                advertisementKind = null;
+              }
+              if (nextPhase === phase) return true;
+              phase = nextPhase;
+              post(Object.assign({ type: 'phase', source: 'page' }, phasePayload()));
+              return true;
+            }"""
+          new_phase = """  function setPhase(nextPhase, nextAdvertisementKind) {
+              if (!VALID_PHASES.has(nextPhase)) return false;
+              const normalizedAdvertisementKind =
+                nextPhase === 'advertisement' ||
+                nextPhase === 'overlayAdvertisement'
+                  ? VALID_AD_KINDS.has(nextAdvertisementKind)
+                    ? nextAdvertisementKind
+                    : nextPhase === 'overlayAdvertisement'
+                      ? 'overlay'
+                      : 'unknown'
+                  : null;
+              if (
+                nextPhase === phase &&
+                normalizedAdvertisementKind === advertisementKind
+              ) {
+                return true;
+              }
+              phase = nextPhase;
+              advertisementKind = normalizedAdvertisementKind;
+              post(Object.assign({ type: 'phase', source: 'page' }, phasePayload()));
+              return true;
+            }"""
+          if text.count(old_phase) != 1:
+              raise SystemExit('setPhase anchor mismatch')
+          bridge.write_text(text.replace(old_phase, new_phase))
+
+          identity_test = Path('test/features/room/domain/web_playback_media_identity_test.dart')
+          text = identity_test.read_text()
+          old_test = """    test('does not match different, collection-only, or cross-site media', () {
+              final first = WebPlaybackMediaIdentity.tryParse("""
+          new_test = """    test(
+              'does not match different, collection-only, or cross-site media',
+              () {
+                final first = WebPlaybackMediaIdentity.tryParse("""
+          if text.count(old_test) != 1:
+              raise SystemExit('identity formatter anchor mismatch')
+          text = text.replace(old_test, new_test)
+          old_tail = """      expect(first.isSameEpisodeAs(iqiyi), isFalse);
+            });
+
+            test('rejects insecure, off-site, and unsupported paths', () {"""
+          new_tail = """        expect(first.isSameEpisodeAs(iqiyi), isFalse);
+              },
+            );
+
+            test('rejects insecure, off-site, and unsupported paths', () {"""
+          if text.count(old_tail) != 1:
+              raise SystemExit('identity formatter tail anchor mismatch')
+          identity_test.write_text(text.replace(old_tail, new_tail))
+
+          script_test = Path('test/features/room/domain/web_playback_bridge_script_test.dart')
+          text = script_test.read_text()
+          anchor = """    test(
+              'does not publish ended when the active phase is a blocking advertisement',"""
+          addition = """    test('command errors include the current playback phase', () {
+              expect(
+                webPlaybackBridgeBootstrapScript,
+                contains("Object.assign(\\n        {\\n          type: 'error'"),
+              );
+              expect(
+                webPlaybackBridgeBootstrapScript,
+                contains('phasePayload(),\\n      ),\\n    );'),
+              );
+            });
+
+            test('publishes advertisement-kind changes within the same phase', () {
+              expect(
+                webPlaybackBridgeBootstrapScript,
+                contains('normalizedAdvertisementKind === advertisementKind'),
+              );
+              expect(
+                webPlaybackBridgeBootstrapScript,
+                contains('advertisementKind = normalizedAdvertisementKind'),
+              );
+            });
+
+          """
+          if text.count(anchor) != 1:
+              raise SystemExit('bridge test anchor mismatch')
+          script_test.write_text(text.replace(anchor, addition + anchor))
+          PY
+
+          rm .github/workflows/web-playback-hardening.yml
+          git diff --check
+
+      - name: Commit hardened implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add lib/features/room/domain/web_playback_bridge_script.dart \
+            test/features/room/domain/web_playback_bridge_script_test.dart \
+            test/features/room/domain/web_playback_media_identity_test.dart \
+            .github/workflows/web-playback-hardening.yml
+          git commit -m "fix(room): harden advertisement state reporting"
+          git push origin HEAD:feat/iqiyi-tencent-watch-together
