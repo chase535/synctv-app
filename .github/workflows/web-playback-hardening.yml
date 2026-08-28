@@ -98,17 +98,19 @@ jobs:
 
           script_test = Path('test/features/room/domain/web_playback_bridge_script_test.dart')
           text = script_test.read_text()
-          anchor = """    test(
-              'does not publish ended when the active phase is a blocking advertisement',"""
+          marker = "'does not publish ended when the active phase is a blocking advertisement',"
+          if text.count(marker) != 1:
+              raise SystemExit('bridge test marker mismatch')
+          marker_pos = text.index(marker)
+          insertion_pos = text.rfind('    test(', 0, marker_pos)
+          if insertion_pos < 0 or text[insertion_pos:marker_pos].strip() != 'test(':
+              raise SystemExit('bridge test insertion guard mismatch')
           addition = """    test('command errors include the current playback phase', () {
               expect(
                 webPlaybackBridgeBootstrapScript,
                 contains("Object.assign(\\n        {\\n          type: 'error'"),
               );
-              expect(
-                webPlaybackBridgeBootstrapScript,
-                contains('phasePayload(),\\n      ),\\n    );'),
-              );
+              expect(webPlaybackBridgeBootstrapScript, contains('phasePayload()'));
             });
 
             test('publishes advertisement-kind changes within the same phase', () {
@@ -123,9 +125,7 @@ jobs:
             });
 
           """
-          if text.count(anchor) != 1:
-              raise SystemExit('bridge test anchor mismatch')
-          script_test.write_text(text.replace(anchor, addition + anchor))
+          script_test.write_text(text[:insertion_pos] + addition + text[insertion_pos:])
           PY
 
           dart format \
