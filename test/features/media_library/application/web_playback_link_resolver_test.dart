@@ -52,7 +52,10 @@ void main() {
         provider: WebPlaybackProvider.iqiyi,
       );
 
-      expect(uri.toString(), 'https://www.iqiyi.com/v_test_mobile_share_1.html');
+      expect(
+        uri.toString(),
+        'https://www.iqiyi.com/v_test_mobile_share_1.html',
+      );
     });
 
     test(
@@ -81,7 +84,10 @@ void main() {
           provider: WebPlaybackProvider.iqiyi,
         );
 
-        expect(uri.toString(), 'https://www.iqiyi.com/v_test_play_share_1.html');
+        expect(
+          uri.toString(),
+          'https://www.iqiyi.com/v_test_play_share_1.html',
+        );
       },
     );
 
@@ -124,7 +130,10 @@ void main() {
         );
 
         expect(requestCount, 2);
-        expect(uri.toString(), 'https://www.iqiyi.com/v_test_mixer_share_1.html');
+        expect(
+          uri.toString(),
+          'https://www.iqiyi.com/v_test_mixer_share_1.html',
+        );
       },
     );
 
@@ -155,7 +164,10 @@ void main() {
           provider: WebPlaybackProvider.iqiyi,
         );
 
-        expect(uri.toString(), 'https://www.iqiyi.com/v_test_encoded_share_1.html');
+        expect(
+          uri.toString(),
+          'https://www.iqiyi.com/v_test_encoded_share_1.html',
+        );
       },
     );
 
