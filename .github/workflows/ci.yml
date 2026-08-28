@@ -25,7 +25,6 @@ concurrency:
 
 env:
   FLUTTER_VERSION: "3.44.8"
-  NODE_VERSION: "24"
   PROTOC_VERSION: "35.1"
   RUST_VERSION: "1.97.1"
 
@@ -96,13 +95,22 @@ jobs:
           git diff --exit-code -- lib/l10n lib/src/generated
 
   android-native:
-    name: Android native release
+    name: Signed Android release APK
     if: >-
       inputs.native-build-mode != 'skip' &&
       (github.event_name != 'push' ||
-      github.ref_name == github.event.repository.default_branch)
+      github.ref_name == github.event.repository.default_branch) &&
+      (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
+    env:
+      SYNCTV_ANDROID_KEYSTORE_BASE64: ${{ secrets.SYNCTV_ANDROID_KEYSTORE_BASE64 }}
+      SYNCTV_ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/synctv-release.jks
+      SYNCTV_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.SYNCTV_ANDROID_KEYSTORE_PASSWORD }}
+      SYNCTV_ANDROID_KEY_ALIAS: ${{ secrets.SYNCTV_ANDROID_KEY_ALIAS }}
+      SYNCTV_ANDROID_KEY_PASSWORD: ${{ secrets.SYNCTV_ANDROID_KEY_PASSWORD }}
+      SYNCTV_BUILT_IN_SERVER_URL: ${{ secrets.SYNCTV_BUILT_IN_SERVER_URL }}
 
     steps:
       - name: Check out source
@@ -123,22 +131,64 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           flutter-architecture: x64
           rust-version: ${{ env.RUST_VERSION }}
-          rust-targets: aarch64-linux-android
+          rust-targets: armv7-linux-androideabi,aarch64-linux-android,x86_64-linux-android
+
+      - name: Prepare Android release signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${SYNCTV_ANDROID_KEYSTORE_BASE64:?Missing SYNCTV_ANDROID_KEYSTORE_BASE64 repository secret}"
+          : "${SYNCTV_ANDROID_KEYSTORE_PASSWORD:?Missing SYNCTV_ANDROID_KEYSTORE_PASSWORD repository secret}"
+          : "${SYNCTV_ANDROID_KEY_ALIAS:?Missing SYNCTV_ANDROID_KEY_ALIAS repository secret}"
+          : "${SYNCTV_ANDROID_KEY_PASSWORD:?Missing SYNCTV_ANDROID_KEY_PASSWORD repository secret}"
+          : "${SYNCTV_BUILT_IN_SERVER_URL:?Missing SYNCTV_BUILT_IN_SERVER_URL repository secret}"
+
+          printf '%s' "$SYNCTV_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$SYNCTV_ANDROID_KEYSTORE_PATH"
+          test -s "$SYNCTV_ANDROID_KEYSTORE_PATH"
+          chmod 600 "$SYNCTV_ANDROID_KEYSTORE_PATH"
+          keytool -list \
+            -keystore "$SYNCTV_ANDROID_KEYSTORE_PATH" \
+            -storepass "$SYNCTV_ANDROID_KEYSTORE_PASSWORD" \
+            -alias "$SYNCTV_ANDROID_KEY_ALIAS" >/dev/null
 
       - name: Configure Android release plugins
         # Work around flutter/flutter#169336 for --no-pub release builds.
         run: flutter build apk --config-only
 
-      - name: Build Android release
-        run: >-
-          flutter build apk
-          --release
-          --no-pub
-          --target-platform android-arm64
-          --split-debug-info build/symbols/ci-android-arm64
+      - name: Build signed universal Android release APK
+        shell: bash
+        run: |
+          flutter build apk \
+            --release \
+            --no-pub \
+            --target-platform android-arm,android-arm64,android-x64 \
+            --dart-define="SYNCTV_BUILT_IN_SERVER_URL=$SYNCTV_BUILT_IN_SERVER_URL" \
+            --split-debug-info build/symbols/ci-android
 
-      - name: Verify Android manifest and launcher icon
-        run: bash tool/ci/verify_android_artifact.sh build/app/outputs/flutter-apk/app-release.apk
+      - name: Verify Android release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="build/app/outputs/flutter-apk/app-release.apk"
+          bash tool/ci/verify_android_artifact.sh "$apk"
+
+          for abi in armeabi-v7a arm64-v8a x86_64; do
+            if ! unzip -Z1 "$apk" | grep -Fx "lib/$abi/libapp.so" >/dev/null; then
+              echo "Missing Flutter runtime for Android ABI: $abi" >&2
+              exit 1
+            fi
+          done
+
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -n 1)"
+          test -n "$apksigner"
+          "$apksigner" verify --verbose "$apk"
+
+      - name: Upload signed Android release APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: synctv-android-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
 
   linux-native:
     name: Linux ${{ matrix.architecture }} native release
@@ -232,57 +282,3 @@ jobs:
             -Architecture x64 `
             -OutputDirectory dist `
             -RepositoryUrl "${{ github.server_url }}/${{ github.repository }}"
-
-  apple-native:
-    name: Apple native releases
-    if: >-
-      inputs.native-build-mode != 'skip' &&
-      (github.event_name != 'push' ||
-      github.ref_name == github.event.repository.default_branch)
-    runs-on: macos-26
-    timeout-minutes: 75
-
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Set up build toolchain
-        uses: ./.github/actions/setup-build
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          flutter-architecture: arm64
-          rust-version: ${{ env.RUST_VERSION }}
-          rust-targets: aarch64-apple-darwin,x86_64-apple-darwin,aarch64-apple-ios
-
-      - name: Set up Node.js for macOS packaging
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install macOS packaging dependencies
-        run: npm ci --prefix tool/ci/macos-dmg
-
-      - name: Build and package macOS release
-        run: |
-          flutter build macos \
-            --release \
-            --no-pub \
-            --dart-define SYNCTV_NATIVE_APPLE_SIGN_IN=false \
-            --split-debug-info build/symbols/macos-universal
-          bash tool/ci/verify_macos_architecture.sh \
-            build/macos/Build/Products/Release/SyncTV.app universal
-          bash tool/ci/package_release.sh macos universal "0.0.0+0-ci" dist/macos
-
-      - name: Build and package unsigned iOS release
-        run: |
-          bash tool/ci/verify_apple_app_icon.sh
-          flutter build ios \
-            --release \
-            --no-pub \
-            --no-codesign \
-            --split-debug-info build/symbols/ios-arm64
-          bash tool/ci/verify_apple_private_apis.sh \
-            build/ios/iphoneos/Runner.app
-          bash tool/ci/package_release.sh ios arm64 "0.0.0+0-ci" dist/ios
