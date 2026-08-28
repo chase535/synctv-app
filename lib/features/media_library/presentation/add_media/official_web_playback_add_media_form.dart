@@ -145,8 +145,7 @@ class _OfficialWebPlaybackAddMediaFormState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final canSubmit = _urlController.text.trim().isNotEmpty && !_loading;
-    final canOpenLogin =
-        _loginClient.supported && !_openingLogin && !_loading;
+    final canOpenLogin = _loginClient.supported && !_openingLogin && !_loading;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
