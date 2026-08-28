@@ -59,25 +59,28 @@ void main() {
     },
   );
 
-  test('resolves tvid metadata from a trusted non-playShare iQIYI URL', () async {
-    final client = MockClient((request) async {
-      expect(request.url.host, 'mesh.if.iqiyi.com');
-      expect(request.url.queryParameters['id'], '2234567890123400');
-      return http.Response(
-        '{"retcode":200,"data":{"pageurl_iqiyi_pc":'
-        '"https://www.iqiyi.com/v_test_query_tvid_1.html"}}',
-        200,
-        headers: {'content-type': 'application/json'},
-        request: request,
+  test(
+    'resolves tvid metadata from a trusted non-playShare iQIYI URL',
+    () async {
+      final client = MockClient((request) async {
+        expect(request.url.host, 'mesh.if.iqiyi.com');
+        expect(request.url.queryParameters['id'], '2234567890123400');
+        return http.Response(
+          '{"retcode":200,"data":{"pageurl_iqiyi_pc":'
+          '"https://www.iqiyi.com/v_test_query_tvid_1.html"}}',
+          200,
+          headers: {'content-type': 'application/json'},
+          request: request,
+        );
+      });
+      final resolver = WebPlaybackLinkResolver(client: client);
+
+      final uri = await resolver.resolve(
+        'https://www.iqiyi.com/?tvid=2234567890123400',
+        provider: WebPlaybackProvider.iqiyi,
       );
-    });
-    final resolver = WebPlaybackLinkResolver(client: client);
 
-    final uri = await resolver.resolve(
-      'https://www.iqiyi.com/?tvid=2234567890123400',
-      provider: WebPlaybackProvider.iqiyi,
-    );
-
-    expect(uri.toString(), 'https://www.iqiyi.com/v_test_query_tvid_1.html');
-  });
+      expect(uri.toString(), 'https://www.iqiyi.com/v_test_query_tvid_1.html');
+    },
+  );
 }
