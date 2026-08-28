@@ -86,6 +86,80 @@ void main() {
     );
 
     test(
+      'resolves qy.net links that land on iQIYI playShare tvid pages',
+      () async {
+        var requestCount = 0;
+        final client = MockClient((request) async {
+          requestCount += 1;
+          if (request.url.host == 'qy.net') {
+            return http.Response(
+              '',
+              302,
+              headers: {
+                'location':
+                    'https://www.iqiyi.com/playShare.html?tvid=1234567890123400'
+                    '&social_platform=link',
+              },
+              request: request,
+            );
+          }
+
+          expect(request.url.host, 'mesh.if.iqiyi.com');
+          expect(request.url.path, '/tvg/play/mixer');
+          expect(request.url.queryParameters['id'], '1234567890123400');
+          expect(request.url.queryParameters['fid'], '');
+          return http.Response(
+            '{"retcode":200,"data":{"pageurl_iqiyi_pc":'
+            '"https://www.iqiyi.com/v_test_mixer_share_1.html"}}',
+            200,
+            headers: {'content-type': 'application/json'},
+            request: request,
+          );
+        });
+        final resolver = WebPlaybackLinkResolver(client: client);
+
+        final uri = await resolver.resolve(
+          'https://qy.net/TestTvidShare_123',
+          provider: WebPlaybackProvider.iqiyi,
+        );
+
+        expect(requestCount, 2);
+        expect(uri.toString(), 'https://www.iqiyi.com/v_test_mixer_share_1.html');
+      },
+    );
+
+    test(
+      'decodes synthetic iQIYI playShare ids before metadata lookup',
+      () async {
+        final client = MockClient((request) async {
+          expect(request.url.host, 'mesh.if.iqiyi.com');
+          expect(request.url.path, '/tvg/play/mixer');
+          expect(request.url.queryParameters['id'], '1234567890123400');
+          return http.Response(
+            '{"retcode":200,"data":{"pageurl_iqiyi_pc":'
+            '"https://www.iqiyi.com/v_test_encoded_share_1.html"}}',
+            200,
+            headers: {'content-type': 'application/json'},
+            request: request,
+          );
+        });
+        final resolver = WebPlaybackLinkResolver(client: client);
+
+        final uri = await resolver.resolve(
+          'https://www.iqiyi.com/playShare.html?'
+          'shareId=MzQ1Njc4OTAxMjM0NTYwMA%3D%3D'
+          '&positiveId=MTIzNDU2Nzg5MDEyMzQwMA%3D%3D'
+          '&type=0&is_short_id=1'
+          '&v=MjM0NTY3ODkwMTIzNDUwMA%3D%3D'
+          '&social_platform=link',
+          provider: WebPlaybackProvider.iqiyi,
+        );
+
+        expect(uri.toString(), 'https://www.iqiyi.com/v_test_encoded_share_1.html');
+      },
+    );
+
+    test(
       'falls back to desktop semantics when a mobile share redirect is generic',
       () async {
         var requestCount = 0;

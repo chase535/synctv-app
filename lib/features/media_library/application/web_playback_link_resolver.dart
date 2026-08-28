@@ -30,6 +30,8 @@ final class WebPlaybackLinkResolver {
 
   static const Set<int> _redirectStatusCodes = {301, 302, 303, 307, 308};
   static const int _maxHtmlBytes = 256 * 1024;
+  static const String _iqiyiMixerHost = 'mesh.if.iqiyi.com';
+  static const String _iqiyiMixerPath = '/tvg/play/mixer';
   static const String _desktopBrowserUserAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
       'AppleWebKit/537.36 (KHTML, like Gecko) '
@@ -39,6 +41,7 @@ final class WebPlaybackLinkResolver {
       'AppleWebKit/537.36 (KHTML, like Gecko) '
       'Chrome/131.0.0.0 Mobile Safari/537.36';
 
+  static final RegExp _iqiyiNumericIdPattern = RegExp(r'^\d{8,24}$');
   static final RegExp _urlInText = RegExp(
     r'https?://[^\s]+',
     caseSensitive: false,
@@ -111,6 +114,13 @@ final class WebPlaybackLinkResolver {
           return identity.canonicalUri;
         }
 
+        final metadataEpisode = await _resolveIqiyiShareMetadata(
+          client,
+          current,
+          policy,
+        );
+        if (metadataEpisode != null) return metadataEpisode;
+
         if (hop == maxRedirects) {
           throw const WebPlaybackLinkResolutionException('分享链接跳转次数过多');
         }
@@ -182,6 +192,119 @@ final class WebPlaybackLinkResolver {
     return uri.replace(scheme: 'https', host: uri.host.toLowerCase());
   }
 
+  Future<Uri?> _resolveIqiyiShareMetadata(
+    http.Client client,
+    Uri uri,
+    WebPlaybackSitePolicy policy,
+  ) async {
+    final candidates = _iqiyiShareIdCandidates(uri, policy);
+    for (final candidate in candidates) {
+      final metadataUri = Uri.https(_iqiyiMixerHost, _iqiyiMixerPath, {
+        'id': candidate,
+        'fid': '',
+      });
+      final request = http.Request('GET', metadataUri)
+        ..followRedirects = false
+        ..headers['accept'] = 'application/json,text/plain,*/*'
+        ..headers['referer'] = 'https://www.iqiyi.com/'
+        ..headers['user-agent'] = _desktopBrowserUserAgent;
+
+      late final http.StreamedResponse response;
+      try {
+        response = await client.send(request).timeout(timeout);
+      } on TimeoutException {
+        return null;
+      } on http.ClientException {
+        return null;
+      }
+
+      if (response.statusCode != 200) {
+        await _cancelBody(response.stream);
+        continue;
+      }
+
+      late final String body;
+      try {
+        body = await _readBodyPreview(response.stream).timeout(timeout);
+      } on TimeoutException {
+        return null;
+      }
+      if (body.isEmpty) continue;
+
+      late final Object? payload;
+      try {
+        payload = jsonDecode(body);
+      } on FormatException {
+        continue;
+      }
+      if (payload is! Map<String, dynamic> ||
+          payload['retcode']?.toString() != '200') {
+        continue;
+      }
+
+      final data = payload['data'];
+      if (data is! Map<String, dynamic>) continue;
+      final pageUrl = data['pageurl_iqiyi_pc'];
+      if (pageUrl is! String || pageUrl.trim().isEmpty) continue;
+
+      final parsedPageUri = Uri.tryParse(pageUrl.trim());
+      if (parsedPageUri == null) continue;
+      final episodeUri = _asEpisodeUri(parsedPageUri, policy);
+      if (episodeUri != null) return episodeUri;
+    }
+    return null;
+  }
+
+  static List<String> _iqiyiShareIdCandidates(
+    Uri uri,
+    WebPlaybackSitePolicy policy,
+  ) {
+    if (policy.provider != WebPlaybackProvider.iqiyi ||
+        !policy.allows(uri) ||
+        !_isIqiyiShareLandingPath(uri.path)) {
+      return const [];
+    }
+
+    final normalizedQuery = <String, String>{
+      for (final entry in uri.queryParameters.entries)
+        entry.key.toLowerCase(): entry.value,
+    };
+    final result = <String>[];
+    final seen = <String>{};
+
+    void addCandidate(String? value) {
+      final candidate = _decodeIqiyiShareId(value);
+      if (candidate != null && seen.add(candidate)) result.add(candidate);
+    }
+
+    addCandidate(normalizedQuery['tvid']);
+    addCandidate(normalizedQuery['tv_id']);
+    addCandidate(normalizedQuery['positiveid']);
+    addCandidate(normalizedQuery['v']);
+    addCandidate(normalizedQuery['shareid']);
+    return result;
+  }
+
+  static String? _decodeIqiyiShareId(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    final normalized = value.trim().replaceAll(' ', '+');
+    if (_iqiyiNumericIdPattern.hasMatch(normalized)) return normalized;
+
+    try {
+      final decoded = utf8.decode(base64.decode(base64.normalize(normalized)));
+      return _iqiyiNumericIdPattern.hasMatch(decoded) ? decoded : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  static bool _isIqiyiShareLandingPath(String path) {
+    final normalized = path.toLowerCase();
+    return normalized == '/playshare.html' ||
+        normalized == '/mp/shareplay.html' ||
+        normalized == '/other/qyvideo.html';
+  }
+
   Future<Uri?> _requestRedirect(
     http.Client client,
     Uri uri,
@@ -222,12 +345,7 @@ final class WebPlaybackLinkResolver {
     // pages are not media identities themselves and can return a generic page
     // to desktop clients while mobile clients receive the concrete video
     // redirect/share payload.
-    final path = uri.path.toLowerCase();
-    if (path == '/playshare.html' ||
-        path == '/mp/shareplay.html' ||
-        path == '/other/qyvideo.html') {
-      return true;
-    }
+    if (_isIqiyiShareLandingPath(uri.path)) return true;
 
     final queryKeys = uri.queryParameters.keys
         .map((key) => key.toLowerCase())
