@@ -1,0 +1,62 @@
+name: Normalize line endings and rebase feature
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  normalize-and-rebase:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Normalize tracked text files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add --renormalize .
+          git rm .github/workflows/normalize-line-endings.yml
+
+          if git diff --cached --quiet; then
+            echo "No normalization changes were needed."
+          else
+            git commit -m "chore: normalize repository line endings"
+          fi
+
+          git push origin HEAD:main
+          echo "NORMALIZED_MAIN_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Rebase feature branch onto normalized main
+        shell: bash
+        env:
+          EXPECTED_FEATURE_SHA: bc3f2e461c2baa8d791c11858de8afca8a5a10a8
+          FEATURE_REF: feat/iqiyi-tencent-watch-together
+        run: |
+          set -euo pipefail
+
+          git fetch origin "${FEATURE_REF}" main
+          actual_feature_sha="$(git rev-parse "origin/${FEATURE_REF}")"
+          if [ "$actual_feature_sha" != "$EXPECTED_FEATURE_SHA" ]; then
+            echo "Feature branch moved: expected $EXPECTED_FEATURE_SHA, found $actual_feature_sha" >&2
+            exit 1
+          fi
+
+          git checkout -B rebase-feature "origin/${FEATURE_REF}"
+          git rebase -Xrenormalize --empty=drop "$NORMALIZED_MAIN_SHA"
+          git diff --check "$NORMALIZED_MAIN_SHA"...HEAD
+
+          git push \
+            --force-with-lease="refs/heads/${FEATURE_REF}:${EXPECTED_FEATURE_SHA}" \
+            origin "HEAD:refs/heads/${FEATURE_REF}"

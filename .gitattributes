@@ -1,2 +1,6 @@
-pubspec.lock whitespace=cr-at-eol
-lib/l10n/app_localizations*.dart whitespace=cr-at-eol
+# Keep repository text files normalized to LF across platforms.
+* text=auto eol=lf
+
+# Windows command scripts are the explicit CRLF exceptions.
+*.bat text eol=crlf
+*.cmd text eol=crlf
