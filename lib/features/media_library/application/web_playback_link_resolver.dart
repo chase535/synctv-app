@@ -259,9 +259,7 @@ final class WebPlaybackLinkResolver {
     Uri uri,
     WebPlaybackSitePolicy policy,
   ) {
-    if (policy.provider != WebPlaybackProvider.iqiyi ||
-        !policy.allows(uri) ||
-        !_isIqiyiShareLandingPath(uri.path)) {
+    if (policy.provider != WebPlaybackProvider.iqiyi || !policy.allows(uri)) {
       return const [];
     }
 
@@ -277,11 +275,16 @@ final class WebPlaybackLinkResolver {
       if (candidate != null && seen.add(candidate)) result.add(candidate);
     }
 
+    // Some qy.net redirects land on ordinary iQIYI pages that still expose a
+    // concrete tvid in the query string instead of using playShare.html.
     addCandidate(normalizedQuery['tvid']);
     addCandidate(normalizedQuery['tv_id']);
-    addCandidate(normalizedQuery['positiveid']);
-    addCandidate(normalizedQuery['v']);
-    addCandidate(normalizedQuery['shareid']);
+
+    if (_isIqiyiShareLandingPath(uri.path)) {
+      addCandidate(normalizedQuery['positiveid']);
+      addCandidate(normalizedQuery['v']);
+      addCandidate(normalizedQuery['shareid']);
+    }
     return result;
   }
 
@@ -313,6 +316,7 @@ final class WebPlaybackLinkResolver {
     final userAgents = _prefersMobileShareSemantics(uri, policy)
         ? const [_mobileBrowserUserAgent, _desktopBrowserUserAgent]
         : const [_desktopBrowserUserAgent];
+    Uri? metadataTarget;
     Uri? fallbackTarget;
 
     for (final userAgent in userAgents) {
@@ -326,10 +330,15 @@ final class WebPlaybackLinkResolver {
 
       final episodeUri = _asEpisodeUri(target, policy);
       if (episodeUri != null) return episodeUri;
-      fallbackTarget ??= target;
+
+      if (_iqiyiShareIdCandidates(target, policy).isNotEmpty) {
+        metadataTarget ??= target;
+      } else {
+        fallbackTarget ??= target;
+      }
     }
 
-    return fallbackTarget;
+    return metadataTarget ?? fallbackTarget;
   }
 
   static bool _prefersMobileShareSemantics(
