@@ -304,6 +304,7 @@ final class WebPlaybackLinkResolver {
   static bool _isIqiyiShareLandingPath(String path) {
     final normalized = path.toLowerCase();
     return normalized == '/playshare.html' ||
+        normalized == '/m/playshare' ||
         normalized == '/mp/shareplay.html' ||
         normalized == '/other/qyvideo.html';
   }
