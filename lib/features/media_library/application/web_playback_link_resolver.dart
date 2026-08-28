@@ -19,11 +19,13 @@ final class WebPlaybackLinkResolutionException implements Exception {
 /// requested. Redirects are followed manually so every hop can be checked
 /// before the next network request is made.
 final class WebPlaybackLinkResolver {
-  WebPlaybackLinkResolver({
+  factory WebPlaybackLinkResolver({
     http.Client? client,
-    this.timeout = const Duration(seconds: 8),
-    this.maxRedirects = 6,
-  }) : _client = client;
+    Duration timeout = const Duration(seconds: 8),
+    int maxRedirects = 6,
+  }) => WebPlaybackLinkResolver._(client, timeout, maxRedirects);
+
+  WebPlaybackLinkResolver._(this._client, this.timeout, this.maxRedirects);
 
   static const Set<int> _redirectStatusCodes = {301, 302, 303, 307, 308};
   static final RegExp _urlInText = RegExp(
@@ -45,12 +47,13 @@ final class WebPlaybackLinkResolver {
     }
 
     final policy = WebPlaybackSitePolicy.forProvider(provider);
-    var current = _normalizeTrustedUri(parsed, policy);
-    if (current == null) {
+    final initialUri = _normalizeTrustedUri(parsed, policy);
+    if (initialUri == null) {
       throw const WebPlaybackLinkResolutionException(
         '链接不属于当前选择的视频平台，或不是受支持的官方/分享链接',
       );
     }
+    var current = initialUri;
 
     final client = _client ?? http.Client();
     final ownsClient = _client == null;
