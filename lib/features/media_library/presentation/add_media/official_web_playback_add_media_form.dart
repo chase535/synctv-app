@@ -42,8 +42,7 @@ class _OfficialWebPlaybackAddMediaFormState
   };
 
   String get _urlHint => switch (widget.provider) {
-    WebPlaybackProvider.iqiyi =>
-      '支持 iqiyi.com / qy.net 等爱奇艺官方网页、移动端及分享链接',
+    WebPlaybackProvider.iqiyi => '支持 iqiyi.com / qy.net 等爱奇艺官方网页、移动端及分享链接',
     WebPlaybackProvider.tencentVideo =>
       '支持 v.qq.com / m.v.qq.com 等腾讯视频官方网页、移动端及分享链接',
   };
