@@ -10,14 +10,14 @@ void main() {
       'resolves iQIYI qy.net app share links to canonical episodes',
       () async {
         final client = MockClient((request) async {
-          expect(request.url.toString(), 'https://qy.net/4aJQrYo-ef');
+          expect(request.url.toString(), 'https://qy.net/TestShare_123');
           expect(request.followRedirects, isFalse);
           return http.Response(
             '',
             302,
             headers: {
               'location':
-                  'https://www.iqiyi.com/iex/v_19rrlo7rno.html?vfrm=share',
+                  'https://www.iqiyi.com/iex/v_test_share_video_1.html?vfrm=share',
             },
             request: request,
           );
@@ -25,11 +25,14 @@ void main() {
         final resolver = WebPlaybackLinkResolver(client: client);
 
         final uri = await resolver.resolve(
-          'https://qy.net/4aJQrYo-ef',
+          'https://qy.net/TestShare_123',
           provider: WebPlaybackProvider.iqiyi,
         );
 
-        expect(uri.toString(), 'https://www.iqiyi.com/iex/v_19rrlo7rno.html');
+        expect(
+          uri.toString(),
+          'https://www.iqiyi.com/iex/v_test_share_video_1.html',
+        );
       },
     );
 
@@ -38,18 +41,23 @@ void main() {
         return http.Response(
           '',
           302,
-          headers: {'location': 'https://www.iqiyi.com/v_19rrn9o9n8.html'},
+          headers: {
+            'location': 'https://www.iqiyi.com/v_test_share_video_2.html',
+          },
           request: request,
         );
       });
       final resolver = WebPlaybackLinkResolver(client: client);
 
       final uri = await resolver.resolve(
-        '我正在爱奇艺看这个视频：https://qy.net/4aJQrYo-ef，复制链接一起看',
+        '我正在爱奇艺看这个视频：https://qy.net/TestShare_456，复制链接一起看',
         provider: WebPlaybackProvider.iqiyi,
       );
 
-      expect(uri.toString(), 'https://www.iqiyi.com/v_19rrn9o9n8.html');
+      expect(
+        uri.toString(),
+        'https://www.iqiyi.com/v_test_share_video_2.html',
+      );
     });
 
     test('resolves Tencent url.cn links through mobile share URLs', () async {
@@ -60,7 +68,7 @@ void main() {
           302,
           headers: {
             'location':
-                'https://m.v.qq.com/x/m/play?cid=mzc00200cf43gaf&vid=7uHwAjgHuPJ&url_from=share',
+                'https://m.v.qq.com/x/m/play?cid=test_collection_1&vid=test_video_1&url_from=share',
           },
           request: request,
         );
@@ -68,13 +76,13 @@ void main() {
       final resolver = WebPlaybackLinkResolver(client: client);
 
       final uri = await resolver.resolve(
-        'https://url.cn/example',
+        'https://url.cn/TestShare_123',
         provider: WebPlaybackProvider.tencentVideo,
       );
 
       expect(
         uri.toString(),
-        'https://v.qq.com/x/cover/mzc00200cf43gaf/7uHwAjgHuPJ.html',
+        'https://v.qq.com/x/cover/test_collection_1/test_video_1.html',
       );
     });
 
@@ -87,11 +95,11 @@ void main() {
         final resolver = WebPlaybackLinkResolver(client: client);
 
         final uri = await resolver.resolve(
-          'http://m.v.qq.com/play.html?cid=&vid=t060641781b&url_from=share',
+          'http://m.v.qq.com/play.html?cid=&vid=test_video_2&url_from=share',
           provider: WebPlaybackProvider.tencentVideo,
         );
 
-        expect(uri.toString(), 'https://v.qq.com/x/page/t060641781b.html');
+        expect(uri.toString(), 'https://v.qq.com/x/page/test_video_2.html');
       },
     );
 
@@ -110,7 +118,7 @@ void main() {
 
         await expectLater(
           resolver.resolve(
-            'https://qy.net/4aJQrYo-ef',
+            'https://qy.net/TestShare_789',
             provider: WebPlaybackProvider.iqiyi,
           ),
           throwsA(
@@ -131,7 +139,7 @@ void main() {
 
       await expectLater(
         resolver.resolve(
-          'https://url.cn/example',
+          'https://url.cn/TestShare_456',
           provider: WebPlaybackProvider.iqiyi,
         ),
         throwsA(
@@ -153,7 +161,7 @@ void main() {
 
       await expectLater(
         resolver.resolve(
-          'https://www.iqiyi.com/a_1cul7zi24jt.html',
+          'https://www.iqiyi.com/a_test_album_1.html',
           provider: WebPlaybackProvider.iqiyi,
         ),
         throwsA(
