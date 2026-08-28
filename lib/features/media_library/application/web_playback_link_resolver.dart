@@ -30,13 +30,21 @@ final class WebPlaybackLinkResolver {
 
   static const Set<int> _redirectStatusCodes = {301, 302, 303, 307, 308};
   static const int _maxHtmlBytes = 256 * 1024;
-  static const String _browserUserAgent =
+  static const String _desktopBrowserUserAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
       'AppleWebKit/537.36 (KHTML, like Gecko) '
       'Chrome/131.0.0.0 Safari/537.36';
+  static const String _mobileBrowserUserAgent =
+      'Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) '
+      'AppleWebKit/537.36 (KHTML, like Gecko) '
+      'Chrome/131.0.0.0 Mobile Safari/537.36';
 
   static final RegExp _urlInText = RegExp(
     r'https?://[^\s]+',
+    caseSensitive: false,
+  );
+  static final RegExp _embeddedUrlInText = RegExp(
+    r'''(?:https?:)?//[^\s"'<>]+''',
     caseSensitive: false,
   );
   static final RegExp _metaTagPattern = RegExp(
@@ -179,12 +187,40 @@ final class WebPlaybackLinkResolver {
     Uri uri,
     WebPlaybackSitePolicy policy,
   ) async {
+    final userAgents = policy.allows(uri)
+        ? const [_desktopBrowserUserAgent]
+        : const [_mobileBrowserUserAgent, _desktopBrowserUserAgent];
+    Uri? fallbackTarget;
+
+    for (final userAgent in userAgents) {
+      final target = await _requestRedirectWithUserAgent(
+        client,
+        uri,
+        policy,
+        userAgent,
+      );
+      if (target == null) continue;
+
+      final episodeUri = _asEpisodeUri(target, policy);
+      if (episodeUri != null) return episodeUri;
+      fallbackTarget ??= target;
+    }
+
+    return fallbackTarget;
+  }
+
+  Future<Uri?> _requestRedirectWithUserAgent(
+    http.Client client,
+    Uri uri,
+    WebPlaybackSitePolicy policy,
+    String userAgent,
+  ) async {
     final request = http.Request('GET', uri)
       ..followRedirects = false
       ..headers['accept'] =
           'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
       ..headers['accept-language'] = 'zh-CN,zh;q=0.9,en;q=0.8'
-      ..headers['user-agent'] = _browserUserAgent;
+      ..headers['user-agent'] = userAgent;
 
     final response = await client.send(request).timeout(timeout);
     final location = response.headers['location'];
@@ -215,11 +251,28 @@ final class WebPlaybackLinkResolver {
     if (body.isEmpty) return null;
 
     final htmlTarget = _extractExplicitHtmlTarget(body);
+    Uri? resolvedHtmlTarget;
     if (htmlTarget != null) {
-      return uri.resolve(_decodeEmbeddedTarget(htmlTarget));
+      resolvedHtmlTarget = uri.resolve(_decodeEmbeddedTarget(htmlTarget));
+      final episodeUri = _asEpisodeUri(resolvedHtmlTarget, policy);
+      if (episodeUri != null) return episodeUri;
     }
 
-    return _findEmbeddedEpisodeUri(body, policy);
+    final embeddedEpisodeUri = _findEmbeddedEpisodeUri(body, uri, policy);
+    if (embeddedEpisodeUri != null) return embeddedEpisodeUri;
+
+    return resolvedHtmlTarget;
+  }
+
+  static Uri? _asEpisodeUri(Uri uri, WebPlaybackSitePolicy policy) {
+    final normalized = _normalizeTrustedUri(uri, policy);
+    if (normalized == null) return null;
+
+    final identity = WebPlaybackMediaIdentity.tryParse(normalized);
+    if (identity?.provider != policy.provider || identity?.isEpisode != true) {
+      return null;
+    }
+    return identity!.canonicalUri;
   }
 
   static Future<void> _cancelBody(Stream<List<int>> stream) async {
@@ -250,7 +303,16 @@ final class WebPlaybackLinkResolver {
         final target = _parseRefreshTarget(attributes['content']);
         if (target != null) return target;
       }
+    }
 
+    for (final pattern in [_locationCallPattern, _locationAssignmentPattern]) {
+      final match = pattern.firstMatch(body);
+      final target = match?.group(2)?.trim();
+      if (target != null && target.isNotEmpty) return target;
+    }
+
+    for (final tagMatch in _metaTagPattern.allMatches(body)) {
+      final attributes = _parseAttributes(tagMatch.group(0)!);
       final property = (attributes['property'] ?? attributes['name'])
           ?.toLowerCase();
       if (property == 'og:url' || property == 'twitter:url') {
@@ -268,12 +330,6 @@ final class WebPlaybackLinkResolver {
       }
     }
 
-    for (final pattern in [_locationCallPattern, _locationAssignmentPattern]) {
-      final match = pattern.firstMatch(body);
-      final target = match?.group(2)?.trim();
-      if (target != null && target.isNotEmpty) return target;
-    }
-
     return null;
   }
 
@@ -289,29 +345,26 @@ final class WebPlaybackLinkResolver {
 
   static Uri? _findEmbeddedEpisodeUri(
     String body,
+    Uri baseUri,
     WebPlaybackSitePolicy policy,
   ) {
     final decodedBody = _decodeEmbeddedTarget(body);
-    for (final match in _urlInText.allMatches(decodedBody)) {
+    for (final match in _embeddedUrlInText.allMatches(decodedBody)) {
       final matchedCandidate = match.group(0);
       if (matchedCandidate == null || matchedCandidate.isEmpty) continue;
       var candidate = matchedCandidate;
 
+      const trailingPunctuation = '),;]}';
       while (candidate.isNotEmpty &&
-          '''"'<>),;]}'''.contains(candidate[candidate.length - 1])) {
+          trailingPunctuation.contains(candidate[candidate.length - 1])) {
         candidate = candidate.substring(0, candidate.length - 1);
       }
 
       final parsed = Uri.tryParse(candidate);
       if (parsed == null) continue;
-      final normalized = _normalizeTrustedUri(parsed, policy);
-      if (normalized == null) continue;
-
-      final identity = WebPlaybackMediaIdentity.tryParse(normalized);
-      if (identity?.provider == policy.provider &&
-          identity?.isEpisode == true) {
-        return identity!.canonicalUri;
-      }
+      final resolved = parsed.hasScheme ? parsed : baseUri.resolveUri(parsed);
+      final episodeUri = _asEpisodeUri(resolved, policy);
+      if (episodeUri != null) return episodeUri;
     }
     return null;
   }

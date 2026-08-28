@@ -33,6 +33,67 @@ void main() {
       );
     });
 
+    test('uses mobile browser semantics for iQIYI short share links', () async {
+      final client = MockClient((request) async {
+        expect(request.headers['user-agent'], contains('Mobile'));
+        return http.Response(
+          '',
+          302,
+          headers: {
+            'location': 'https://www.iqiyi.com/v_test_mobile_share_1.html',
+          },
+          request: request,
+        );
+      });
+      final resolver = WebPlaybackLinkResolver(client: client);
+
+      final uri = await resolver.resolve(
+        'https://qy.net/TestMobileShare_123',
+        provider: WebPlaybackProvider.iqiyi,
+      );
+
+      expect(uri.toString(), 'https://www.iqiyi.com/v_test_mobile_share_1.html');
+    });
+
+    test(
+      'falls back to desktop semantics when a mobile share redirect is generic',
+      () async {
+        var requestCount = 0;
+        final client = MockClient((request) async {
+          requestCount += 1;
+          final userAgent = request.headers['user-agent'] ?? '';
+          if (userAgent.contains('Mobile')) {
+            return http.Response(
+              '',
+              302,
+              headers: {'location': 'https://www.iqiyi.com/'},
+              request: request,
+            );
+          }
+          return http.Response(
+            '',
+            302,
+            headers: {
+              'location': 'https://www.iqiyi.com/v_test_desktop_share_1.html',
+            },
+            request: request,
+          );
+        });
+        final resolver = WebPlaybackLinkResolver(client: client);
+
+        final uri = await resolver.resolve(
+          'https://qy.net/TestUaFallback_123',
+          provider: WebPlaybackProvider.iqiyi,
+        );
+
+        expect(requestCount, 2);
+        expect(
+          uri.toString(),
+          'https://www.iqiyi.com/v_test_desktop_share_1.html',
+        );
+      },
+    );
+
     test('resolves iQIYI share pages that use HTML meta refresh', () async {
       final client = MockClient((request) async {
         expect(request.url.toString(), 'https://qy.net/TestMetaShare_123');
@@ -89,6 +150,48 @@ window.location.replace("https:\/\/www.iqiyi.com\/iex\/v_test_js_video_1.html?vf
         'https://www.iqiyi.com/iex/v_test_js_video_1.html',
       );
     });
+
+    test(
+      'prefers embedded iQIYI episodes over generic share-page metadata',
+      () async {
+        var requestCount = 0;
+        final client = MockClient((request) async {
+          requestCount += 1;
+          return http.Response(
+            r'''
+<html>
+<head>
+<meta property="og:url" content="https://www.iqiyi.com/">
+<link rel="canonical" href="https://www.iqiyi.com/">
+</head>
+<body>
+<script>
+window.__SHARE_DATA__ = {
+  "playUrl": "https:\/\/www.iqiyi.com\/v_test_embedded_video_1.html?vfrm=share"
+};
+</script>
+</body>
+</html>
+''',
+            200,
+            headers: {'content-type': 'text/html; charset=utf-8'},
+            request: request,
+          );
+        });
+        final resolver = WebPlaybackLinkResolver(client: client);
+
+        final uri = await resolver.resolve(
+          'https://qy.net/TestEmbeddedShare_123',
+          provider: WebPlaybackProvider.iqiyi,
+        );
+
+        expect(requestCount, 1);
+        expect(
+          uri.toString(),
+          'https://www.iqiyi.com/v_test_embedded_video_1.html',
+        );
+      },
+    );
 
     test(
       'accepts iqiyi.cn official share links as resolution inputs',
