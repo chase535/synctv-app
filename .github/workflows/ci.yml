@@ -164,13 +164,13 @@ jobs:
             rust-target: aarch64-unknown-linux-gnu
 
     steps:
-      - name: Install Linux build dependencies
-        run: bash tool/ci/install_linux_build_dependencies.sh
-
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Install Linux build dependencies
+        run: bash tool/ci/install_linux_build_dependencies.sh
 
       - name: Set up build toolchain
         uses: ./.github/actions/setup-build
