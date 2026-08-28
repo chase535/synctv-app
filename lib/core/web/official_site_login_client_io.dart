@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:desktop_webview_window/desktop_webview_window.dart';
 import 'package:synctv_app/contracts/web_playback_site.dart';
+import 'package:synctv_app/core/web/official_site_login_target.dart';
 import 'package:synctv_app/core/web/official_site_profile.dart';
 
 final class OfficialSiteLoginClient {
@@ -24,7 +25,7 @@ final class OfficialSiteLoginClient {
     final profileDirectory = await officialSiteProfileDirectory(provider);
     final webview = await WebviewWindow.create(
       configuration: CreateConfiguration(
-        title: '登录 ${_providerName(provider)}',
+        title: '登录 ${officialSiteLoginProviderName(provider)}',
         windowWidth: 1100,
         windowHeight: 780,
         openMaximized: true,
@@ -37,19 +38,9 @@ final class OfficialSiteLoginClient {
     // bodies, referrers, user activation, popup/window.opener, and redirects.
     await webview.setUrlRequestInterceptionEnabled(false);
     await webview.launch(
-      _entryUri(provider).toString(),
+      officialSiteLoginEntryUri(provider).toString(),
       triggerOnUrlRequestEvent: false,
     );
     await webview.bringToForeground(maximized: true);
   }
-
-  static Uri _entryUri(WebPlaybackProvider provider) => switch (provider) {
-    WebPlaybackProvider.iqiyi => Uri.https('www.iqiyi.com', '/iframe/loginreg'),
-    WebPlaybackProvider.tencentVideo => Uri.https('v.qq.com', '/'),
-  };
-
-  static String _providerName(WebPlaybackProvider provider) => switch (provider) {
-    WebPlaybackProvider.iqiyi => '爱奇艺',
-    WebPlaybackProvider.tencentVideo => '腾讯视频',
-  };
 }
