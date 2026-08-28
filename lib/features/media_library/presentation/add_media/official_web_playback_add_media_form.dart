@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:synctv_app/contracts/discovered_source.dart';
 import 'package:synctv_app/core/presentation/notifications/app_notifications.dart';
 import 'package:synctv_app/core/presentation/widgets/app_form_controls.dart';
+import 'package:synctv_app/features/media_library/application/web_playback_link_resolver.dart';
 import 'package:synctv_app/features/providers/presentation/provider_gateway_scope.dart';
-import 'package:synctv_app/features/room/domain/web_playback_adapter_registry.dart';
 import 'package:synctv_app/features/room/domain/web_playback_site.dart';
 import 'package:synctv_app/src/generated/proto/providers/common.pb.dart'
     as provider_common;
@@ -33,6 +33,7 @@ class _OfficialWebPlaybackAddMediaFormState
     extends State<OfficialWebPlaybackAddMediaForm> {
   final _urlController = TextEditingController();
   final _nameController = TextEditingController();
+  final _linkResolver = WebPlaybackLinkResolver();
   bool _loading = false;
 
   String get _providerName => switch (widget.provider) {
@@ -41,9 +42,10 @@ class _OfficialWebPlaybackAddMediaFormState
   };
 
   String get _urlHint => switch (widget.provider) {
-    WebPlaybackProvider.iqiyi => 'https://www.iqiyi.com/iex/v_19rrlo7rno.html',
+    WebPlaybackProvider.iqiyi =>
+      '官网/移动端/分享链接，例如 https://qy.net/4aJQrYo-ef',
     WebPlaybackProvider.tencentVideo =>
-      'https://v.qq.com/x/cover/<coverId>/<videoId>.html',
+      '官网/移动端/分享链接，例如 https://v.qq.com/x/cover/...',
   };
 
   @override
@@ -61,31 +63,16 @@ class _OfficialWebPlaybackAddMediaFormState
     if (mounted) setState(() {});
   }
 
-  Uri? _validatedUri() {
-    var input = _urlController.text.trim();
-    if (input.isEmpty) return null;
-    if (!input.contains('://')) input = 'https://$input';
-    final uri = Uri.tryParse(input);
-    if (uri == null) return null;
-    final adapter = WebPlaybackAdapterRegistry.standard.forMediaUri(uri);
-    if (adapter == null || adapter.provider != widget.provider) return null;
-    final identity = adapter.identify(uri);
-    if (identity == null || !identity.isEpisode) return null;
-    return identity.canonicalUri;
-  }
-
   Future<void> _submit() async {
-    final uri = _validatedUri();
-    if (uri == null) {
-      AppNotifications.showWarning(
-        context,
-        '请输入 $_providerName 的具体单集/视频官方播放页链接',
-      );
-      return;
-    }
+    final input = _urlController.text.trim();
+    if (input.isEmpty || _loading) return;
 
     setState(() => _loading = true);
     try {
+      final uri = await _linkResolver.resolve(
+        input,
+        provider: widget.provider,
+      );
       final prepared = await providerGateway.prepareDirectUrl(
         provider_common.PrepareDirectUrlRequest(
           url: uri.toString(),
@@ -112,6 +99,10 @@ class _OfficialWebPlaybackAddMediaFormState
       widget.onDraftChanged(false);
       Navigator.of(context).pop();
       AppNotifications.showSuccess(context, '已添加 $_providerName 官方网页播放源');
+    } on WebPlaybackLinkResolutionException catch (error) {
+      if (mounted) {
+        AppNotifications.showWarning(context, '$_providerName：${error.message}');
+      }
     } catch (error) {
       if (mounted) {
         AppNotifications.showError(context, '添加 $_providerName 失败：$error');
@@ -124,14 +115,14 @@ class _OfficialWebPlaybackAddMediaFormState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final valid = _validatedUri() != null;
+    final canSubmit = _urlController.text.trim().isNotEmpty && !_loading;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AppTextField(
           key: ValueKey('${widget.provider.name}-official-url'),
           controller: _urlController,
-          label: '$_providerName 官方播放页',
+          label: '$_providerName 官方播放页或分享链接',
           hintText: _urlHint,
           prefixIcon: Icons.language_rounded,
           enabled: !_loading,
@@ -152,7 +143,7 @@ class _OfficialWebPlaybackAddMediaFormState
           textInputAction: TextInputAction.done,
           onChanged: (_) => _changed(),
           onSubmitted: (_) {
-            if (valid && !_loading) _submit();
+            if (canSubmit) _submit();
           },
         ),
         const SizedBox(height: 18),
@@ -170,7 +161,7 @@ class _OfficialWebPlaybackAddMediaFormState
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text(
-                    '使用官方网页和本机登录状态播放。SyncTV 只同步播放/暂停、进度、倍速和媒体身份；不会读取或同步 Cookie、会员凭证、DRM 密钥，也不会绕过网站广告。广告期间会暂停内容时间轴校正，广告结束后自动追上房间进度。',
+                    '支持官网、移动端和官方分享/短链接；分享链接会先安全解析为具体单集或视频的官方播放页。使用本机登录状态播放，SyncTV 只同步播放/暂停、进度、倍速和媒体身份；不会读取或同步 Cookie、会员凭证、DRM 密钥，也不会绕过网站广告。',
                   ),
                 ),
               ],
@@ -182,7 +173,7 @@ class _OfficialWebPlaybackAddMediaFormState
           alignment: Alignment.centerRight,
           child: AppActionButton(
             key: ValueKey('${widget.provider.name}-official-submit'),
-            onPressed: valid ? _submit : null,
+            onPressed: canSubmit ? _submit : null,
             loading: _loading,
             icon: Icons.playlist_add_rounded,
             label: '添加 $_providerName',
