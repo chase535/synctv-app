@@ -189,8 +189,8 @@ packages:
     dependency: "direct main"
     description:
       path: "packages/desktop_webview_window"
-      ref: "28267bb8fefbf60cc0a2daaf760dc2b7a5d7b341"
-      resolved-ref: "28267bb8fefbf60cc0a2daaf760dc2b7a5d7b341"
+      ref: "14ce3964ca0f263ef2f84e6abd427aa0f7bb426c"
+      resolved-ref: "14ce3964ca0f263ef2f84e6abd427aa0f7bb426c"
       url: "https://github.com/chase535/flutter-plugins.git"
     source: git
     version: "0.3.0"
