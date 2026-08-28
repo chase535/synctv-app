@@ -14,6 +14,13 @@ void main() {
         webPlaybackBridgeBootstrapScript,
         contains("querySelectorAll('iframe')"),
       );
+      expect(
+        webPlaybackBridgeBootstrapScript,
+        contains("querySelectorAll('*')"),
+      );
+      expect(webPlaybackBridgeBootstrapScript, contains('shadowRoot'));
+      expect(webPlaybackBridgeBootstrapScript, contains('visitedRoots'));
+      expect(webPlaybackBridgeBootstrapScript, contains('hasMediaState'));
       expect(webPlaybackBridgeBootstrapScript, contains('setPhaseDetector'));
       expect(
         webPlaybackBridgeBootstrapScript,
@@ -26,12 +33,18 @@ void main() {
       expect(webPlaybackBridgeBootstrapScript, contains('attributes: true'));
     });
 
-    test('limits the privileged bridge to top-level official origins', () {
-      expect(
-        webPlaybackBridgeBootstrapScript,
-        contains("'https://www.iqiyi.com'"),
-      );
-      expect(webPlaybackBridgeBootstrapScript, contains("'https://v.qq.com'"));
+    test('limits the privileged bridge to official playback origins', () {
+      for (final origin in const [
+        'https://www.iqiyi.com',
+        'https://m.iqiyi.com',
+        'https://iqiyi.com',
+        'https://www.qiyi.com',
+        'https://qiyi.com',
+        'https://v.qq.com',
+        'https://m.v.qq.com',
+      ]) {
+        expect(webPlaybackBridgeBootstrapScript, contains("'$origin'"));
+      }
       expect(
         webPlaybackBridgeBootstrapScript,
         contains('window.top !== window.self'),
