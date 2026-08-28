@@ -1,40 +1,37 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:synctv_app/contracts/web_playback_site.dart';
 import 'package:synctv_app/features/media_library/application/web_playback_link_resolver.dart';
-import 'package:synctv_app/features/room/domain/web_playback_site.dart';
 
 void main() {
   group('WebPlaybackLinkResolver', () {
-    test(
-      'resolves iQIYI qy.net app share links to canonical episodes',
-      () async {
-        final client = MockClient((request) async {
-          expect(request.url.toString(), 'https://qy.net/TestShare_123');
-          expect(request.followRedirects, isFalse);
-          return http.Response(
-            '',
-            302,
-            headers: {
-              'location':
-                  'https://www.iqiyi.com/iex/v_test_share_video_1.html?vfrm=share',
-            },
-            request: request,
-          );
-        });
-        final resolver = WebPlaybackLinkResolver(client: client);
-
-        final uri = await resolver.resolve(
-          'https://qy.net/TestShare_123',
-          provider: WebPlaybackProvider.iqiyi,
+    test('resolves iQIYI qy.net app share links to canonical episodes', () async {
+      final client = MockClient((request) async {
+        expect(request.url.toString(), 'https://qy.net/TestShare_123');
+        expect(request.followRedirects, isFalse);
+        return http.Response(
+          '',
+          302,
+          headers: {
+            'location':
+                'https://www.iqiyi.com/iex/v_test_share_video_1.html?vfrm=share',
+          },
+          request: request,
         );
+      });
+      final resolver = WebPlaybackLinkResolver(client: client);
 
-        expect(
-          uri.toString(),
-          'https://www.iqiyi.com/iex/v_test_share_video_1.html',
-        );
-      },
-    );
+      final uri = await resolver.resolve(
+        'https://qy.net/TestShare_123',
+        provider: WebPlaybackProvider.iqiyi,
+      );
+
+      expect(
+        uri.toString(),
+        'https://www.iqiyi.com/iex/v_test_share_video_1.html',
+      );
+    });
 
     test('extracts an official link from copied share text', () async {
       final client = MockClient((request) async {
