@@ -94,12 +94,12 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.4
 
 dependency_overrides:
-  # Temporary fork pin: propagate desktop WebView lifecycle failures.
-  # Remove once upstream ships awaitable launch, script registration, and close.
+  # Temporary fork pin: keep auth navigation, popup semantics, and synchronized
+  # HTML5 playback fixes until they are available from upstream.
   desktop_webview_window:
     git:
       url: https://github.com/chase535/flutter-plugins.git
-      ref: 28267bb8fefbf60cc0a2daaf760dc2b7a5d7b341
+      ref: 14ce3964ca0f263ef2f84e6abd427aa0f7bb426c
       path: packages/desktop_webview_window
 
   # SyncTV carries a temporary Darwin fork for upstream passkeys defects.
@@ -117,12 +117,10 @@ flutter_launcher_icons:
     image_path: "assets/icon/logo-notext.png"
     icon_size: 256
 
-# For information on the generic Dart part of this file, see the
-# following page: https://dart.dev/tools/pub/pubspec
+# For information on the generic Dart part of this file, see the following page:
+# https://dart.dev/tools/pub/pubspec
 
-# The following section is specific to Flutter packages.
 flutter:
-
   generate: true
 
   config:
@@ -130,6 +128,5 @@ flutter:
 
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
   assets:
     - assets/icon/logo-notext.svg
