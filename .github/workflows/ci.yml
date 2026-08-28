@@ -184,21 +184,39 @@ jobs:
           test -n "$apksigner"
           "$apksigner" verify --verbose "$apk"
 
-      - name: Upload signed Android release APK
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - name: Package Android release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact_version="$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml | head -n 1)"
+          artifact_version="${artifact_version%$'\r'}"
+          test -n "$artifact_version"
+          install -d dist
+          install -m 0644 \
+            build/app/outputs/flutter-apk/app-release.apk \
+            "dist/SyncTV-$artifact_version-android-universal-signed.apk"
+
+      - name: Upload Android release APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: synctv-android-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: release-android
+          path: dist/*
           if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
 
   linux-native:
     name: Linux ${{ matrix.architecture }} native release
     if: >-
       inputs.native-build-mode != 'skip' &&
       (github.event_name != 'push' ||
-      github.ref_name == github.event.repository.default_branch)
+      github.ref_name == github.event.repository.default_branch) &&
+      (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 50
+    env:
+      SYNCTV_BUILT_IN_SERVER_URL: ${{ secrets.SYNCTV_BUILT_IN_SERVER_URL }}
     strategy:
       fail-fast: false
       matrix:
@@ -232,25 +250,47 @@ jobs:
           rust-targets: ${{ matrix.rust-target }}
 
       - name: Build and package Linux release
+        shell: bash
         run: |
+          set -euo pipefail
+          : "${SYNCTV_BUILT_IN_SERVER_URL:?Missing SYNCTV_BUILT_IN_SERVER_URL repository secret}"
+          artifact_version="$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml | head -n 1)"
+          artifact_version="${artifact_version%$'\r'}"
+          test -n "$artifact_version"
+
           flutter build linux \
             --release \
             --no-pub \
             --target-platform "${{ matrix.flutter-target }}" \
+            --dart-define="SYNCTV_BUILT_IN_SERVER_URL=$SYNCTV_BUILT_IN_SERVER_URL" \
             --split-debug-info "build/symbols/linux-${{ matrix.architecture }}"
           bash tool/ci/strip_linux_release.sh
           bash tool/ci/package_release.sh linux \
-            "${{ matrix.architecture }}" "0.0.0+0-ci" dist
-          test -f "dist/SyncTV-0.0.0+0-ci-linux-${{ matrix.architecture }}.deb"
+            "${{ matrix.architecture }}" "$artifact_version" dist
+          test -f "dist/SyncTV-$artifact_version-linux-${{ matrix.architecture }}.deb"
+          test -f "dist/SyncTV-$artifact_version-linux-${{ matrix.architecture }}.tar.gz"
+
+      - name: Upload Linux release artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-linux-${{ matrix.architecture }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
 
   windows-native:
     name: Windows x64 native release
     if: >-
       inputs.native-build-mode != 'skip' &&
       (github.event_name != 'push' ||
-      github.ref_name == github.event.repository.default_branch)
+      github.ref_name == github.event.repository.default_branch) &&
+      (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: windows-latest
     timeout-minutes: 60
+    env:
+      SYNCTV_BUILT_IN_SERVER_URL: ${{ secrets.SYNCTV_BUILT_IN_SERVER_URL }}
 
     steps:
       - name: Enable long paths
@@ -273,13 +313,34 @@ jobs:
       - name: Build and package Windows release
         shell: pwsh
         run: |
+          if ([string]::IsNullOrWhiteSpace($env:SYNCTV_BUILT_IN_SERVER_URL)) {
+            throw 'Missing SYNCTV_BUILT_IN_SERVER_URL repository secret'
+          }
+          $versionLine = Get-Content pubspec.yaml |
+            Where-Object { $_ -match '^version:\s*' } |
+            Select-Object -First 1
+          if ([string]::IsNullOrWhiteSpace($versionLine)) {
+            throw 'pubspec.yaml does not contain a version'
+          }
+          $artifactVersion = ($versionLine -replace '^version:\s*', '').Trim()
+
           flutter build windows `
             --release `
             --no-pub `
+            --dart-define "SYNCTV_BUILT_IN_SERVER_URL=$env:SYNCTV_BUILT_IN_SERVER_URL" `
             --split-debug-info build/symbols/windows-x64
           ./tool/ci/verify_windows_architecture.ps1 -Architecture x64
           ./tool/ci/package_release.ps1 `
-            -Version "0.0.0+0-ci" `
+            -Version $artifactVersion `
             -Architecture x64 `
             -OutputDirectory dist `
             -RepositoryUrl "${{ github.server_url }}/${{ github.repository }}"
+
+      - name: Upload Windows release artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-windows-x64
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
