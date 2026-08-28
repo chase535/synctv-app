@@ -129,7 +129,7 @@ void main() {
           provider: WebPlaybackProvider.iqiyi,
         );
 
-        expect(requestCount, 2);
+        expect(requestCount, 3);
         expect(
           uri.toString(),
           'https://www.iqiyi.com/v_test_mixer_share_1.html',
