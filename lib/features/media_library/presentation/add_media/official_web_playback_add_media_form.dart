@@ -42,8 +42,7 @@ class _OfficialWebPlaybackAddMediaFormState
   };
 
   String get _urlHint => switch (widget.provider) {
-    WebPlaybackProvider.iqiyi =>
-      '官网/移动端/分享链接，例如 https://qy.net/4aJQrYo-ef',
+    WebPlaybackProvider.iqiyi => '官网/移动端/分享链接，例如 https://qy.net/4aJQrYo-ef',
     WebPlaybackProvider.tencentVideo =>
       '官网/移动端/分享链接，例如 https://v.qq.com/x/cover/...',
   };
@@ -69,10 +68,7 @@ class _OfficialWebPlaybackAddMediaFormState
 
     setState(() => _loading = true);
     try {
-      final uri = await _linkResolver.resolve(
-        input,
-        provider: widget.provider,
-      );
+      final uri = await _linkResolver.resolve(input, provider: widget.provider);
       final prepared = await providerGateway.prepareDirectUrl(
         provider_common.PrepareDirectUrlRequest(
           url: uri.toString(),
@@ -101,7 +97,10 @@ class _OfficialWebPlaybackAddMediaFormState
       AppNotifications.showSuccess(context, '已添加 $_providerName 官方网页播放源');
     } on WebPlaybackLinkResolutionException catch (error) {
       if (mounted) {
-        AppNotifications.showWarning(context, '$_providerName：${error.message}');
+        AppNotifications.showWarning(
+          context,
+          '$_providerName：${error.message}',
+        );
       }
     } catch (error) {
       if (mounted) {

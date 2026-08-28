@@ -121,10 +121,7 @@ final class WebPlaybackLinkResolver {
     return Uri.tryParse(value);
   }
 
-  static Uri? _normalizeTrustedUri(
-    Uri uri,
-    WebPlaybackSitePolicy policy,
-  ) {
+  static Uri? _normalizeTrustedUri(Uri uri, WebPlaybackSitePolicy policy) {
     final scheme = uri.scheme.toLowerCase();
     if ((scheme != 'https' && scheme != 'http') ||
         !uri.hasAuthority ||

@@ -180,7 +180,9 @@ void main() {
 
     test('keeps share short links unresolved until redirect resolution', () {
       expect(
-        WebPlaybackMediaIdentity.tryParse(Uri.parse('https://qy.net/4aJQrYo-ef')),
+        WebPlaybackMediaIdentity.tryParse(
+          Uri.parse('https://qy.net/4aJQrYo-ef'),
+        ),
         isNull,
       );
       expect(

@@ -6,32 +6,32 @@ import 'package:synctv_app/features/room/domain/web_playback_site.dart';
 
 void main() {
   group('WebPlaybackLinkResolver', () {
-    test('resolves iQIYI qy.net app share links to canonical episodes', () async {
-      final client = MockClient((request) async {
-        expect(request.url.toString(), 'https://qy.net/4aJQrYo-ef');
-        expect(request.followRedirects, isFalse);
-        return http.Response(
-          '',
-          302,
-          headers: {
-            'location':
-                'https://www.iqiyi.com/iex/v_19rrlo7rno.html?vfrm=share',
-          },
-          request: request,
+    test(
+      'resolves iQIYI qy.net app share links to canonical episodes',
+      () async {
+        final client = MockClient((request) async {
+          expect(request.url.toString(), 'https://qy.net/4aJQrYo-ef');
+          expect(request.followRedirects, isFalse);
+          return http.Response(
+            '',
+            302,
+            headers: {
+              'location':
+                  'https://www.iqiyi.com/iex/v_19rrlo7rno.html?vfrm=share',
+            },
+            request: request,
+          );
+        });
+        final resolver = WebPlaybackLinkResolver(client: client);
+
+        final uri = await resolver.resolve(
+          'https://qy.net/4aJQrYo-ef',
+          provider: WebPlaybackProvider.iqiyi,
         );
-      });
-      final resolver = WebPlaybackLinkResolver(client: client);
 
-      final uri = await resolver.resolve(
-        'https://qy.net/4aJQrYo-ef',
-        provider: WebPlaybackProvider.iqiyi,
-      );
-
-      expect(
-        uri.toString(),
-        'https://www.iqiyi.com/iex/v_19rrlo7rno.html',
-      );
-    });
+        expect(uri.toString(), 'https://www.iqiyi.com/iex/v_19rrlo7rno.html');
+      },
+    );
 
     test('extracts an official link from copied share text', () async {
       final client = MockClient((request) async {
@@ -78,45 +78,51 @@ void main() {
       );
     });
 
-    test('accepts legacy http Tencent mobile links by upgrading to https', () async {
-      final client = MockClient((request) async {
-        fail('direct recognizable links must not perform a network request');
-      });
-      final resolver = WebPlaybackLinkResolver(client: client);
+    test(
+      'accepts legacy http Tencent mobile links by upgrading to https',
+      () async {
+        final client = MockClient((request) async {
+          fail('direct recognizable links must not perform a network request');
+        });
+        final resolver = WebPlaybackLinkResolver(client: client);
 
-      final uri = await resolver.resolve(
-        'http://m.v.qq.com/play.html?cid=&vid=t060641781b&url_from=share',
-        provider: WebPlaybackProvider.tencentVideo,
-      );
-
-      expect(uri.toString(), 'https://v.qq.com/x/page/t060641781b.html');
-    });
-
-    test('rejects redirects that leave the selected provider trust boundary', () async {
-      final client = MockClient((request) async {
-        return http.Response(
-          '',
-          302,
-          headers: {'location': 'https://evil.example/video.html'},
-          request: request,
+        final uri = await resolver.resolve(
+          'http://m.v.qq.com/play.html?cid=&vid=t060641781b&url_from=share',
+          provider: WebPlaybackProvider.tencentVideo,
         );
-      });
-      final resolver = WebPlaybackLinkResolver(client: client);
 
-      await expectLater(
-        resolver.resolve(
-          'https://qy.net/4aJQrYo-ef',
-          provider: WebPlaybackProvider.iqiyi,
-        ),
-        throwsA(
-          isA<WebPlaybackLinkResolutionException>().having(
-            (error) => error.message,
-            'message',
-            contains('非当前视频平台'),
+        expect(uri.toString(), 'https://v.qq.com/x/page/t060641781b.html');
+      },
+    );
+
+    test(
+      'rejects redirects that leave the selected provider trust boundary',
+      () async {
+        final client = MockClient((request) async {
+          return http.Response(
+            '',
+            302,
+            headers: {'location': 'https://evil.example/video.html'},
+            request: request,
+          );
+        });
+        final resolver = WebPlaybackLinkResolver(client: client);
+
+        await expectLater(
+          resolver.resolve(
+            'https://qy.net/4aJQrYo-ef',
+            provider: WebPlaybackProvider.iqiyi,
           ),
-        ),
-      );
-    });
+          throwsA(
+            isA<WebPlaybackLinkResolutionException>().having(
+              (error) => error.message,
+              'message',
+              contains('非当前视频平台'),
+            ),
+          ),
+        );
+      },
+    );
 
     test('rejects a share host belonging to the other provider', () async {
       final resolver = WebPlaybackLinkResolver(
