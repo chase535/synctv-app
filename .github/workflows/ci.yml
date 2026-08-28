@@ -93,7 +93,7 @@ jobs:
         run: |
           flutter gen-l10n
           bash tool/generate_proto.sh
-          git diff --ignore-cr-at-eol --exit-code -- lib/l10n lib/src/generated
+          git diff --exit-code -- lib/l10n lib/src/generated
 
   android-native:
     name: Android native release
