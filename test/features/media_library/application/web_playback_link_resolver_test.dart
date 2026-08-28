@@ -94,10 +94,11 @@ void main() {
     test(
       'resolves qy.net links that land on iQIYI playShare tvid pages',
       () async {
-        var requestCount = 0;
+        var qyRequests = 0;
+        var mixerRequests = 0;
         final client = MockClient((request) async {
-          requestCount += 1;
           if (request.url.host == 'qy.net') {
+            qyRequests += 1;
             return http.Response(
               '',
               302,
@@ -110,6 +111,7 @@ void main() {
             );
           }
 
+          mixerRequests += 1;
           expect(request.url.host, 'mesh.if.iqiyi.com');
           expect(request.url.path, '/tvg/play/mixer');
           expect(request.url.queryParameters['id'], '1234567890123400');
@@ -129,7 +131,8 @@ void main() {
           provider: WebPlaybackProvider.iqiyi,
         );
 
-        expect(requestCount, 3);
+        expect(qyRequests, 2);
+        expect(mixerRequests, 1);
         expect(
           uri.toString(),
           'https://www.iqiyi.com/v_test_mixer_share_1.html',
