@@ -112,7 +112,7 @@ final class _WindowsWebPlaybackSession implements WebPlaybackSession {
   Future<void> initialize(Uri uri) async {
     _expectedMediaIdentity = _requireRoomMediaIdentity(uri);
     _currentUri = uri;
-    _webview.addScriptToExecuteOnDocumentCreated(
+    await _webview.addScriptToExecuteOnDocumentCreated(
       webPlaybackBridgeBootstrapScript,
     );
     _webview.setOnUrlRequestCallback(_onUrlRequest);
@@ -196,8 +196,9 @@ final class _WindowsWebPlaybackSession implements WebPlaybackSession {
   @override
   Future<void> close() async {
     if (_closed) return;
-    _webview.close();
+    await _webview.close();
     await _webview.onClose;
+    _finishClosed();
   }
 
   bool _onUrlRequest(String rawUrl) {

@@ -55,6 +55,24 @@ void main() {
       expect(tracker.pendingCount, 2);
     });
 
+    test('command error still acknowledges a pending command', () {
+      final tracker = WebPlaybackCommandTracker();
+      tracker.remember(WebPlaybackCommand.play('play-rejected'));
+
+      expect(
+        tracker.acknowledge(
+          const WebPlaybackBridgeMessage(
+            type: WebPlaybackBridgeEventType.error,
+            source: WebPlaybackBridgeEventSource.command,
+            commandId: 'play-rejected',
+            errorMessage: 'blocked by advertisement',
+          ),
+        ),
+        isTrue,
+      );
+      expect(tracker.pendingCount, 0);
+    });
+
     test('forget removes a command after JavaScript invocation failure', () {
       final tracker = WebPlaybackCommandTracker();
       tracker.remember(WebPlaybackCommand.play('play-failed'));
