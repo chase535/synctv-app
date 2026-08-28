@@ -54,10 +54,7 @@ void main() {
         provider: WebPlaybackProvider.iqiyi,
       );
 
-      expect(
-        uri.toString(),
-        'https://www.iqiyi.com/v_test_share_video_2.html',
-      );
+      expect(uri.toString(), 'https://www.iqiyi.com/v_test_share_video_2.html');
     });
 
     test('resolves Tencent url.cn links through mobile share URLs', () async {
