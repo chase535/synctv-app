@@ -1,0 +1,369 @@
+name: Web playback integration finalize
+
+on:
+  push:
+    branches: ["feat/iqiyi-tencent-watch-together"]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: feat/iqiyi-tencent-watch-together
+
+      - name: Set up pinned build toolchain
+        uses: ./.github/actions/setup-build
+
+      - name: Apply guarded integration hardening
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def block(*lines):
+              return '\n'.join(lines) + '\n'
+
+          def replace_once(path, old, new, label):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected one anchor, found {count}')
+              p.write_text(text.replace(old, new, 1))
+
+          def replace_all(path, old, new, expected, label):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != expected:
+                  raise SystemExit(
+                      f'{label}: expected {expected} anchors, found {count}'
+                  )
+              p.write_text(text.replace(old, new))
+
+          def replace_before(path, start, stop, new, label):
+              p = Path(path)
+              text = p.read_text()
+              if text.count(start) != 1:
+                  raise SystemExit(
+                      f'{label}: expected one start anchor, found {text.count(start)}'
+                  )
+              start_index = text.index(start)
+              stop_index = text.find(stop, start_index + len(start))
+              if stop_index < 0:
+                  raise SystemExit(f'{label}: stop anchor not found after start')
+              p.write_text(text[:start_index] + new + text[stop_index:])
+
+          replace_once(
+              'pubspec.yaml',
+              'dependency_overrides:\n',
+              block(
+                  'dependency_overrides:',
+                  '  # Temporary fork pin: surface WebView launch failures to callers.',
+                  '  # Remove once upstream releases the Future<void> launch contract.',
+                  '  desktop_webview_window:',
+                  '    git:',
+                  '      url: https://github.com/chase535/flutter-plugins.git',
+                  '      ref: 135f963364ca6a4cb7722f967d113103952bdae6',
+                  '      path: packages/desktop_webview_window',
+                  '',
+              ),
+              'desktop webview dependency override',
+          )
+
+          replace_once(
+              'lib/features/room/domain/web_playback_command_tracker.dart',
+              '  bool acknowledge(WebPlaybackBridgeMessage message, {DateTime? now}) {\n',
+              block(
+                  '  bool forget(String commandId) => _pending.remove(commandId) != null;',
+                  '',
+                  '  bool acknowledge(WebPlaybackBridgeMessage message, {DateTime? now}) {',
+              ),
+              'command tracker forget',
+          )
+
+          replace_once(
+              'lib/features/room/domain/web_playback_event_router.dart',
+              '  WebPlaybackEventRoute? routeRaw(String raw, {DateTime? now}) {\n',
+              block(
+                  '  bool forgetCommand(String commandId) => _commandTracker.forget(commandId);',
+                  '',
+                  '  WebPlaybackEventRoute? routeRaw(String raw, {DateTime? now}) {',
+              ),
+              'event router forget',
+          )
+
+          replace_once(
+              'lib/features/room/domain/web_playback_runtime.dart',
+              '  WebPlaybackSyncTarget? submitSyncTarget(WebPlaybackSyncTarget target) =>\n',
+              block(
+                  '  bool forgetCommand(String commandId) => _eventRouter.forgetCommand(commandId);',
+                  '',
+                  '  WebPlaybackSyncTarget? submitSyncTarget(WebPlaybackSyncTarget target) =>',
+              ),
+              'runtime forget',
+          )
+
+          replace_once(
+              'lib/features/room/infrastructure/desktop_web_playback_client_io.dart',
+              '      session.initialize(uri);\n',
+              '      await session.initialize(uri);\n',
+              'await initial launch',
+          )
+          replace_once(
+              'lib/features/room/infrastructure/desktop_web_playback_client_io.dart',
+              '      webview.close();\n',
+              '      await session.close();\n',
+              'close failed initial session',
+          )
+          replace_once(
+              'lib/features/room/infrastructure/desktop_web_playback_client_io.dart',
+              '  void initialize(Uri uri) {\n',
+              '  Future<void> initialize(Uri uri) async {\n',
+              'async session initialize',
+          )
+          replace_all(
+              'lib/features/room/infrastructure/desktop_web_playback_client_io.dart',
+              '    _webview.launch(uri.toString());\n',
+              '    await _webview.launch(uri.toString());\n',
+              2,
+              'await webview navigation',
+          )
+          replace_before(
+              'lib/features/room/infrastructure/desktop_web_playback_client_io.dart',
+              '    _runtime.rememberCommand(command);\n',
+              '  @override\n  Future<WebPlaybackSnapshot?> readSnapshot() async {\n',
+              block(
+                  '    _runtime.rememberCommand(command);',
+                  '    try {',
+                  '      final result = await _webview.evaluateJavaScript(',
+                  '        buildWebPlaybackCommandScript(command),',
+                  '      );',
+                  '      return _parseJavaScriptBoolean(result);',
+                  '    } on Object {',
+                  '      _runtime.forgetCommand(command.id);',
+                  '      rethrow;',
+                  '    }',
+                  '  }',
+                  '',
+              ),
+              'command exception cleanup',
+          )
+
+          replace_before(
+              'lib/features/room/presentation/room_screen.dart',
+              block(
+                  '    if (existingSession != null &&',
+                  '        existingCoordinator != null &&',
+                  '        sameProvider) {',
+              ),
+              '    if (existingSession != null || existingCoordinator != null) {\n',
+              block(
+                  '    if (existingSession != null &&',
+                  '        existingCoordinator != null &&',
+                  '        sameProvider) {',
+                  '      try {',
+                  '        if (!sameMedia) {',
+                  '          _webPlaybackAutoOpenSuppressed = false;',
+                  '          await existingSession.navigate(canonicalUri);',
+                  '        }',
+                  '        _webPlaybackUri = canonicalUri;',
+                  '        _webPlaybackProvider = provider;',
+                  '        if (applySync) {',
+                  '          existingCoordinator.updateAuthoritativeState(',
+                  '            _webPlaybackTarget(status),',
+                  '          );',
+                  '        }',
+                  '        if (mounted) {',
+                  '          setState(() {',
+                  '            _webPlaybackSnapshot = existingSession.snapshot;',
+                  '            _webPlaybackError = null;',
+                  '          });',
+                  '        }',
+                  '        return;',
+                  '      } on Object catch (error, stackTrace) {',
+                  '        debugPrint(',
+                  "          'Navigate official web playback failed: $error\\n$stackTrace',",
+                  '        );',
+                  '      }',
+                  '    }',
+                  '',
+              ),
+              'room navigation recovery',
+          )
+
+          replace_all(
+              'lib/features/room/application/web_playback_coordinator.dart',
+              '      _onError?.call(error, stackTrace);\n',
+              '      if (!_closed) _onError?.call(error, stackTrace);\n',
+              4,
+              'suppress teardown errors',
+          )
+          replace_once(
+              'lib/features/room/application/web_playback_coordinator.dart',
+              '    var snapshot = await _session.readSnapshot() ?? _session.snapshot;\n',
+              block(
+                  '    var snapshot = await _session.readSnapshot() ?? _session.snapshot;',
+                  '    if (_closed) return;',
+              ),
+              'apply target closed check',
+          )
+          replace_before(
+              'lib/features/room/application/web_playback_coordinator.dart',
+              '  Future<void> _execute(WebPlaybackCommand command) async {\n',
+              '  Future<void> _correctDrift() async {\n',
+              block(
+                  '  Future<void> _execute(WebPlaybackCommand command) async {',
+                  '    if (_closed) return;',
+                  '    final accepted = await _session.execute(command);',
+                  '    if (_closed) return;',
+                  '    if (!accepted) {',
+                  '      throw StateError(',
+                  "        'Web playback command was rejected: ${command.type.name}',",
+                  '      );',
+                  '    }',
+                  '  }',
+                  '',
+              ),
+              'execute closed checks',
+          )
+          replace_once(
+              'lib/features/room/application/web_playback_coordinator.dart',
+              '      final snapshot = await _session.readSnapshot();\n',
+              block(
+                  '      final snapshot = await _session.readSnapshot();',
+                  '      if (_closed) return;',
+              ),
+              'correction closed check',
+          )
+
+          replace_once(
+              'test/features/room/domain/web_playback_command_tracker_test.dart',
+              "    test('constructor rejects invalid retention and capacity', () {\n",
+              block(
+                  "    test('forget removes a command after JavaScript invocation failure', () {",
+                  '      final tracker = WebPlaybackCommandTracker();',
+                  "      tracker.remember(WebPlaybackCommand.play('play-failed'));",
+                  '',
+                  "      expect(tracker.forget('play-failed'), isTrue);",
+                  '      expect(tracker.pendingCount, 0);',
+                  "      expect(tracker.forget('play-failed'), isFalse);",
+                  '    });',
+                  '',
+                  "    test('constructor rejects invalid retention and capacity', () {",
+              ),
+              'tracker invocation failure regression test',
+          )
+
+          replace_once(
+              'test/features/room/application/web_playback_coordinator_test.dart',
+              '}\n\nFuture<void> _settle() =>\n',
+              block(
+                  "  test('close suppresses failures from in-flight correction', () async {",
+                  '    final session = _FakeWebPlaybackSession(',
+                  '      snapshot: const WebPlaybackSnapshot(',
+                  '        ready: true,',
+                  '        phase: WebPlaybackPhase.content,',
+                  '        isPlaying: false,',
+                  '        positionSeconds: 3,',
+                  '        playbackRate: 1,',
+                  '      ),',
+                  '    );',
+                  '    final readStarted = Completer<void>();',
+                  '    final pendingRead = Completer<WebPlaybackSnapshot?>();',
+                  '    session',
+                  '      ..readSnapshotStarted = readStarted',
+                  '      ..readSnapshotCompleter = pendingRead;',
+                  '    final errors = <Object>[];',
+                  '    final coordinator = WebPlaybackCoordinator(',
+                  '      session: session,',
+                  '      onLocalIntent: (_) {},',
+                  '      onError: (error, _) => errors.add(error),',
+                  '      correctionInterval: const Duration(hours: 1),',
+                  '      random: Random(5),',
+                  '    );',
+                  '',
+                  '    coordinator.updateAuthoritativeState(',
+                  '      const WebPlaybackSyncTarget(',
+                  '        isPlaying: true,',
+                  '        position: Duration(seconds: 20),',
+                  '        playbackRate: 1,',
+                  '      ),',
+                  '    );',
+                  '    await readStarted.future;',
+                  '    final closeFuture = coordinator.close();',
+                  "    pendingRead.completeError(StateError('session closed'));",
+                  '    await closeFuture;',
+                  '    await _settle();',
+                  '',
+                  '    expect(errors, isEmpty);',
+                  '    expect(session.commands, isEmpty);',
+                  '  });',
+                  '}',
+                  '',
+                  'Future<void> _settle() =>',
+              ),
+              'coordinator teardown regression test',
+          )
+          replace_once(
+              'test/features/room/application/web_playback_coordinator_test.dart',
+              block(
+                  '  final List<WebPlaybackCommand> commands = [];',
+                  '',
+                  '  WebPlaybackSnapshot _snapshot;',
+              ),
+              block(
+                  '  final List<WebPlaybackCommand> commands = [];',
+                  '',
+                  '  Completer<void>? readSnapshotStarted;',
+                  '  Completer<WebPlaybackSnapshot?>? readSnapshotCompleter;',
+                  '  WebPlaybackSnapshot _snapshot;',
+              ),
+              'coordinator fake pending read fields',
+          )
+          replace_once(
+              'test/features/room/application/web_playback_coordinator_test.dart',
+              '  Future<WebPlaybackSnapshot?> readSnapshot() async => _snapshot;\n',
+              block(
+                  '  Future<WebPlaybackSnapshot?> readSnapshot() async {',
+                  '    final started = readSnapshotStarted;',
+                  '    if (started != null && !started.isCompleted) started.complete();',
+                  '    final pending = readSnapshotCompleter;',
+                  '    if (pending != null) return pending.future;',
+                  '    return _snapshot;',
+                  '  }',
+              ),
+              'coordinator fake pending read',
+          )
+          PY
+
+          flutter pub get
+          dart format lib test tool packages
+          rm .github/workflows/web-playback-integration-finalize.yml
+          git diff --check
+          dart format --output=none --set-exit-if-changed lib test tool packages
+
+      - name: Analyze full client
+        run: flutter analyze
+
+      - name: Test full client
+        run: flutter test
+
+      - name: Commit validated integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin feat/iqiyi-tencent-watch-together
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/feat/iqiyi-tencent-watch-together)"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "fix(room): finalize resilient official web playback"
+          git push origin HEAD:feat/iqiyi-tencent-watch-together
