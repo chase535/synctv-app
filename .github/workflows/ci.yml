@@ -106,7 +106,6 @@ jobs:
     timeout-minutes: 60
     env:
       SYNCTV_ANDROID_KEYSTORE_BASE64: ${{ secrets.SYNCTV_ANDROID_KEYSTORE_BASE64 }}
-      SYNCTV_ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/synctv-release.jks
       SYNCTV_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.SYNCTV_ANDROID_KEYSTORE_PASSWORD }}
       SYNCTV_ANDROID_KEY_ALIAS: ${{ secrets.SYNCTV_ANDROID_KEY_ALIAS }}
       SYNCTV_ANDROID_KEY_PASSWORD: ${{ secrets.SYNCTV_ANDROID_KEY_PASSWORD }}
@@ -143,13 +142,15 @@ jobs:
           : "${SYNCTV_ANDROID_KEY_PASSWORD:?Missing SYNCTV_ANDROID_KEY_PASSWORD repository secret}"
           : "${SYNCTV_BUILT_IN_SERVER_URL:?Missing SYNCTV_BUILT_IN_SERVER_URL repository secret}"
 
-          printf '%s' "$SYNCTV_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$SYNCTV_ANDROID_KEYSTORE_PATH"
-          test -s "$SYNCTV_ANDROID_KEYSTORE_PATH"
-          chmod 600 "$SYNCTV_ANDROID_KEYSTORE_PATH"
+          keystore_path="$RUNNER_TEMP/synctv-release.jks"
+          printf '%s' "$SYNCTV_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          test -s "$keystore_path"
+          chmod 600 "$keystore_path"
           keytool -list \
-            -keystore "$SYNCTV_ANDROID_KEYSTORE_PATH" \
+            -keystore "$keystore_path" \
             -storepass "$SYNCTV_ANDROID_KEYSTORE_PASSWORD" \
             -alias "$SYNCTV_ANDROID_KEY_ALIAS" >/dev/null
+          echo "SYNCTV_ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
 
       - name: Configure Android release plugins
         # Work around flutter/flutter#169336 for --no-pub release builds.
