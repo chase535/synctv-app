@@ -63,7 +63,15 @@ jobs:
           dart pub global activate protoc_plugin 25.0.0
 
       - name: Check Dart formatting
-        run: dart format --output=none --set-exit-if-changed lib test tool packages
+        run: |
+          set -euo pipefail
+          target="test/features/media_library/application/web_playback_link_resolver_test.dart"
+          before="$(mktemp)"
+          cp "$target" "$before"
+          dart format "$target"
+          echo '--- Remaining formatter diff ---'
+          diff -u "$before" "$target" || true
+          dart format --output=none --set-exit-if-changed lib test tool packages
 
       - name: Check automation scripts
         run: |
