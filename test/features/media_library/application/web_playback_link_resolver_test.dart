@@ -56,6 +56,36 @@ void main() {
     });
 
     test(
+      'uses mobile share semantics for iQIYI playShare landing pages',
+      () async {
+        final client = MockClient((request) async {
+          expect(request.url.host, 'www.iqiyi.com');
+          expect(request.url.path, '/playShare.html');
+          expect(request.url.queryParameters['shareId'], 'TestShare');
+          expect(request.url.queryParameters['positiveId'], 'TestPositive');
+          expect(request.headers['user-agent'], contains('Mobile'));
+          return http.Response(
+            '',
+            302,
+            headers: {
+              'location': 'https://www.iqiyi.com/v_test_play_share_1.html',
+            },
+            request: request,
+          );
+        });
+        final resolver = WebPlaybackLinkResolver(client: client);
+
+        final uri = await resolver.resolve(
+          'https://www.iqiyi.com/playShare.html?shareId=TestShare'
+          '&positiveId=TestPositive&type=0&is_short_id=1&social_platform=link',
+          provider: WebPlaybackProvider.iqiyi,
+        );
+
+        expect(uri.toString(), 'https://www.iqiyi.com/v_test_play_share_1.html');
+      },
+    );
+
+    test(
       'falls back to desktop semantics when a mobile share redirect is generic',
       () async {
         var requestCount = 0;

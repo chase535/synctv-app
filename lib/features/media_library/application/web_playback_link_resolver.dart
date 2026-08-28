@@ -187,9 +187,9 @@ final class WebPlaybackLinkResolver {
     Uri uri,
     WebPlaybackSitePolicy policy,
   ) async {
-    final userAgents = policy.allows(uri)
-        ? const [_desktopBrowserUserAgent]
-        : const [_mobileBrowserUserAgent, _desktopBrowserUserAgent];
+    final userAgents = _prefersMobileShareSemantics(uri, policy)
+        ? const [_mobileBrowserUserAgent, _desktopBrowserUserAgent]
+        : const [_desktopBrowserUserAgent];
     Uri? fallbackTarget;
 
     for (final userAgent in userAgents) {
@@ -207,6 +207,35 @@ final class WebPlaybackLinkResolver {
     }
 
     return fallbackTarget;
+  }
+
+  static bool _prefersMobileShareSemantics(
+    Uri uri,
+    WebPlaybackSitePolicy policy,
+  ) {
+    // Trusted short/share hosts are not playback pages and are generally
+    // designed for mobile-app sharing, so keep mobile-first behavior there.
+    if (!policy.allows(uri)) return true;
+    if (policy.provider != WebPlaybackProvider.iqiyi) return false;
+
+    // iQIYI also serves share landing pages from normal playback hosts. Those
+    // pages are not media identities themselves and can return a generic page
+    // to desktop clients while mobile clients receive the concrete video
+    // redirect/share payload.
+    final path = uri.path.toLowerCase();
+    if (path == '/playshare.html' ||
+        path == '/mp/shareplay.html' ||
+        path == '/other/qyvideo.html') {
+      return true;
+    }
+
+    final queryKeys = uri.queryParameters.keys
+        .map((key) => key.toLowerCase())
+        .toSet();
+    return queryKeys.contains('shareid') ||
+        queryKeys.contains('positiveid') ||
+        queryKeys.contains('tvid') ||
+        queryKeys.contains('is_short_id');
   }
 
   Future<Uri?> _requestRedirectWithUserAgent(
