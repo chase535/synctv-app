@@ -26,8 +26,17 @@ final class WebPlaybackSitePolicy {
       's.iq.com',
       'iq.com',
       'www.iq.com',
+      'iqiyi.cn',
+      'www.iqiyi.cn',
     },
-    inputHostSuffixes: {'iqiyi.com', 'qiyi.com', 'qy.net', 'qy.com', 'iq.com'},
+    inputHostSuffixes: {
+      'iqiyi.com',
+      'qiyi.com',
+      'qy.net',
+      'qy.com',
+      'iq.com',
+      'iqiyi.cn',
+    },
     authenticationHosts: {'passport.iqiyi.com'},
   );
 

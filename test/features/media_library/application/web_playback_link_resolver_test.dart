@@ -33,6 +33,85 @@ void main() {
       );
     });
 
+    test('resolves iQIYI share pages that use HTML meta refresh', () async {
+      final client = MockClient((request) async {
+        expect(request.url.toString(), 'https://qy.net/TestMetaShare_123');
+        return http.Response(
+          '''
+<html>
+<head>
+<meta http-equiv="refresh" content="0; url=https://www.iqiyi.com/v_test_meta_video_1.html?vfrm=share">
+</head>
+</html>
+''',
+          200,
+          headers: {'content-type': 'text/html; charset=utf-8'},
+          request: request,
+        );
+      });
+      final resolver = WebPlaybackLinkResolver(client: client);
+
+      final uri = await resolver.resolve(
+        'https://qy.net/TestMetaShare_123',
+        provider: WebPlaybackProvider.iqiyi,
+      );
+
+      expect(uri.toString(), 'https://www.iqiyi.com/v_test_meta_video_1.html');
+    });
+
+    test('resolves iQIYI share pages that use JavaScript redirects', () async {
+      final client = MockClient((request) async {
+        expect(request.url.toString(), 'https://qy.net/TestJsShare_123');
+        return http.Response(
+          r'''
+<html>
+<body>
+<script>
+window.location.replace("https:\/\/www.iqiyi.com\/iex\/v_test_js_video_1.html?vfrm=share");
+</script>
+</body>
+</html>
+''',
+          200,
+          headers: {'content-type': 'text/html; charset=utf-8'},
+          request: request,
+        );
+      });
+      final resolver = WebPlaybackLinkResolver(client: client);
+
+      final uri = await resolver.resolve(
+        'https://qy.net/TestJsShare_123',
+        provider: WebPlaybackProvider.iqiyi,
+      );
+
+      expect(
+        uri.toString(),
+        'https://www.iqiyi.com/iex/v_test_js_video_1.html',
+      );
+    });
+
+    test('accepts iqiyi.cn official share links as resolution inputs', () async {
+      final client = MockClient((request) async {
+        expect(request.url.toString(), 'https://iqiyi.cn/TestShare_123');
+        return http.Response(
+          '',
+          302,
+          headers: {
+            'location': 'https://www.iqiyi.com/v_test_cn_video_1.html',
+          },
+          request: request,
+        );
+      });
+      final resolver = WebPlaybackLinkResolver(client: client);
+
+      final uri = await resolver.resolve(
+        'https://iqiyi.cn/TestShare_123',
+        provider: WebPlaybackProvider.iqiyi,
+      );
+
+      expect(uri.toString(), 'https://www.iqiyi.com/v_test_cn_video_1.html');
+    });
+
     test('extracts an official link from copied share text', () async {
       final client = MockClient((request) async {
         return http.Response(
