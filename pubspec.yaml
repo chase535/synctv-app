@@ -94,6 +94,14 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.4
 
 dependency_overrides:
+  # Temporary fork pin: surface WebView launch failures to callers.
+  # Remove once upstream releases the Future<void> launch contract.
+  desktop_webview_window:
+    git:
+      url: https://github.com/chase535/flutter-plugins.git
+      ref: 135f963364ca6a4cb7722f967d113103952bdae6
+      path: packages/desktop_webview_window
+
   # SyncTV carries a temporary Darwin fork for upstream passkeys defects.
   # Rationale, upstream baseline, and removal checklist:
   # packages/passkeys_darwin/README.md

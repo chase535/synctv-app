@@ -67,7 +67,7 @@ final class WebPlaybackCoordinator {
     _subscription = _session.updates.listen(
       _handleRuntimeUpdate,
       onError: (Object error, StackTrace stackTrace) {
-        _onError?.call(error, stackTrace);
+        if (!_closed) _onError?.call(error, stackTrace);
       },
     );
     _correctionTimer = Timer.periodic(
@@ -124,7 +124,7 @@ final class WebPlaybackCoordinator {
       if (result is Future<void>) {
         unawaited(
           result.catchError((Object error, StackTrace stackTrace) {
-            _onError?.call(error, stackTrace);
+            if (!_closed) _onError?.call(error, stackTrace);
           }),
         );
       }
@@ -162,7 +162,7 @@ final class WebPlaybackCoordinator {
         await _applyTarget(target);
       }
     } on Object catch (error, stackTrace) {
-      _onError?.call(error, stackTrace);
+      if (!_closed) _onError?.call(error, stackTrace);
     } finally {
       _draining = false;
       if (!_closed && _pendingApplyTarget != null) {
@@ -173,6 +173,7 @@ final class WebPlaybackCoordinator {
 
   Future<void> _applyTarget(WebPlaybackSyncTarget target) async {
     var snapshot = await _session.readSnapshot() ?? _session.snapshot;
+    if (_closed) return;
     if (snapshot.phase == WebPlaybackPhase.advertisement) {
       final authoritative = _authoritativeTarget;
       _session.submitSyncTarget(
@@ -222,7 +223,10 @@ final class WebPlaybackCoordinator {
   }
 
   Future<void> _execute(WebPlaybackCommand command) async {
-    if (!await _session.execute(command)) {
+    if (_closed) return;
+    final accepted = await _session.execute(command);
+    if (_closed) return;
+    if (!accepted) {
       throw StateError(
         'Web playback command was rejected: ${command.type.name}',
       );
@@ -237,6 +241,7 @@ final class WebPlaybackCoordinator {
     _correctionInFlight = true;
     try {
       final snapshot = await _session.readSnapshot();
+      if (_closed) return;
       if (snapshot == null || !snapshot.ready) return;
       if (snapshot.phase == WebPlaybackPhase.advertisement) {
         _session.submitSyncTarget(_effectiveTarget(authoritative));
@@ -257,7 +262,7 @@ final class WebPlaybackCoordinator {
               _seekToleranceSeconds;
       if (needsCorrection) _queueApply(target);
     } on Object catch (error, stackTrace) {
-      _onError?.call(error, stackTrace);
+      if (!_closed) _onError?.call(error, stackTrace);
     } finally {
       _correctionInFlight = false;
     }

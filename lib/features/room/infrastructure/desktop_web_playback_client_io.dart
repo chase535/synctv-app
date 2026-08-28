@@ -70,10 +70,10 @@ final class NativeDesktopWebPlaybackClient implements WebPlaybackClient {
       bridgeToken: _createBridgeToken(),
     );
     try {
-      session.initialize(uri);
+      await session.initialize(uri);
       return session;
     } on Object {
-      webview.close();
+      await session.close();
       rethrow;
     }
   }
@@ -109,7 +109,7 @@ final class _WindowsWebPlaybackSession implements WebPlaybackSession {
   int _navigationGeneration = 0;
   bool _closed = false;
 
-  void initialize(Uri uri) {
+  Future<void> initialize(Uri uri) async {
     _expectedMediaIdentity = _requireRoomMediaIdentity(uri);
     _currentUri = uri;
     _webview.addScriptToExecuteOnDocumentCreated(
@@ -121,7 +121,7 @@ final class _WindowsWebPlaybackSession implements WebPlaybackSession {
     unawaited(_webview.onClose.then((_) => _finishClosed()));
     _runtime.resetForNavigation();
     _navigationGeneration += 1;
-    _webview.launch(uri.toString());
+    await _webview.launch(uri.toString());
   }
 
   @override
@@ -147,10 +147,15 @@ final class _WindowsWebPlaybackSession implements WebPlaybackSession {
     if (uri == null || !_adapter.sitePolicy.allows(uri)) return false;
     if (!await _pageMatchesExpectedMedia()) return false;
     _runtime.rememberCommand(command);
-    final result = await _webview.evaluateJavaScript(
-      buildWebPlaybackCommandScript(command),
-    );
-    return _parseJavaScriptBoolean(result);
+    try {
+      final result = await _webview.evaluateJavaScript(
+        buildWebPlaybackCommandScript(command),
+      );
+      return _parseJavaScriptBoolean(result);
+    } on Object {
+      _runtime.forgetCommand(command.id);
+      rethrow;
+    }
   }
 
   @override
@@ -179,7 +184,7 @@ final class _WindowsWebPlaybackSession implements WebPlaybackSession {
     _currentUri = uri;
     _runtime.resetForNavigation();
     _navigationGeneration += 1;
-    _webview.launch(uri.toString());
+    await _webview.launch(uri.toString());
   }
 
   @override

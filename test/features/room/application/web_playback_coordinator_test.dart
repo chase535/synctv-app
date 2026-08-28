@@ -189,6 +189,46 @@ void main() {
     expect(session.commands.last.type, WebPlaybackCommandType.play);
     await coordinator.close();
   });
+  test('close suppresses failures from in-flight correction', () async {
+    final session = _FakeWebPlaybackSession(
+      snapshot: const WebPlaybackSnapshot(
+        ready: true,
+        phase: WebPlaybackPhase.content,
+        isPlaying: false,
+        positionSeconds: 3,
+        playbackRate: 1,
+      ),
+    );
+    final readStarted = Completer<void>();
+    final pendingRead = Completer<WebPlaybackSnapshot?>();
+    session
+      ..readSnapshotStarted = readStarted
+      ..readSnapshotCompleter = pendingRead;
+    final errors = <Object>[];
+    final coordinator = WebPlaybackCoordinator(
+      session: session,
+      onLocalIntent: (_) {},
+      onError: (error, _) => errors.add(error),
+      correctionInterval: const Duration(hours: 1),
+      random: Random(5),
+    );
+
+    coordinator.updateAuthoritativeState(
+      const WebPlaybackSyncTarget(
+        isPlaying: true,
+        position: Duration(seconds: 20),
+        playbackRate: 1,
+      ),
+    );
+    await readStarted.future;
+    final closeFuture = coordinator.close();
+    pendingRead.completeError(StateError('session closed'));
+    await closeFuture;
+    await _settle();
+
+    expect(errors, isEmpty);
+    expect(session.commands, isEmpty);
+  });
 }
 
 Future<void> _settle() =>
@@ -203,6 +243,8 @@ final class _FakeWebPlaybackSession implements WebPlaybackSession {
   final Completer<void> _closed = Completer<void>();
   final List<WebPlaybackCommand> commands = [];
 
+  Completer<void>? readSnapshotStarted;
+  Completer<WebPlaybackSnapshot?>? readSnapshotCompleter;
   WebPlaybackSnapshot _snapshot;
   WebPlaybackSyncTarget? pendingTarget;
   Uri? _currentUri = Uri.parse('https://www.iqiyi.com/v_test.html');
@@ -251,7 +293,13 @@ final class _FakeWebPlaybackSession implements WebPlaybackSession {
   }
 
   @override
-  Future<WebPlaybackSnapshot?> readSnapshot() async => _snapshot;
+  Future<WebPlaybackSnapshot?> readSnapshot() async {
+    final started = readSnapshotStarted;
+    if (started != null && !started.isCompleted) started.complete();
+    final pending = readSnapshotCompleter;
+    if (pending != null) return pending.future;
+    return _snapshot;
+  }
 
   @override
   Future<void> navigate(Uri uri) async {

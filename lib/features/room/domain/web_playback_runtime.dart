@@ -56,6 +56,8 @@ final class WebPlaybackRuntime {
     _eventRouter.rememberCommand(command, now: now);
   }
 
+  bool forgetCommand(String commandId) => _eventRouter.forgetCommand(commandId);
+
   WebPlaybackSyncTarget? submitSyncTarget(WebPlaybackSyncTarget target) =>
       _syncGate.submit(target);
 

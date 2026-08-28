@@ -42,6 +42,8 @@ final class WebPlaybackCommandTracker {
     );
   }
 
+  bool forget(String commandId) => _pending.remove(commandId) != null;
+
   bool acknowledge(WebPlaybackBridgeMessage message, {DateTime? now}) {
     if (message.source != WebPlaybackBridgeEventSource.command ||
         message.commandId == null) {

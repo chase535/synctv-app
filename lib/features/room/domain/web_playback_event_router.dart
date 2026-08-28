@@ -54,6 +54,8 @@ final class WebPlaybackEventRouter {
     _commandTracker.remember(command, now: now);
   }
 
+  bool forgetCommand(String commandId) => _commandTracker.forget(commandId);
+
   WebPlaybackEventRoute? routeRaw(String raw, {DateTime? now}) {
     final message = WebPlaybackBridgeMessage.tryDecode(
       raw,

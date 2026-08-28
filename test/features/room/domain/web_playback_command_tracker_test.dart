@@ -55,6 +55,15 @@ void main() {
       expect(tracker.pendingCount, 2);
     });
 
+    test('forget removes a command after JavaScript invocation failure', () {
+      final tracker = WebPlaybackCommandTracker();
+      tracker.remember(WebPlaybackCommand.play('play-failed'));
+
+      expect(tracker.forget('play-failed'), isTrue);
+      expect(tracker.pendingCount, 0);
+      expect(tracker.forget('play-failed'), isFalse);
+    });
+
     test('constructor rejects invalid retention and capacity', () {
       expect(
         () => WebPlaybackCommandTracker(retention: const Duration(seconds: -1)),

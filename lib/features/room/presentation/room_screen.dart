@@ -2660,24 +2660,30 @@ class _RoomScreenState extends State<RoomScreen>
     if (existingSession != null &&
         existingCoordinator != null &&
         sameProvider) {
-      if (!sameMedia) {
-        _webPlaybackAutoOpenSuppressed = false;
-        await existingSession.navigate(canonicalUri);
-      }
-      _webPlaybackUri = canonicalUri;
-      _webPlaybackProvider = provider;
-      if (applySync) {
-        existingCoordinator.updateAuthoritativeState(
-          _webPlaybackTarget(status),
+      try {
+        if (!sameMedia) {
+          _webPlaybackAutoOpenSuppressed = false;
+          await existingSession.navigate(canonicalUri);
+        }
+        _webPlaybackUri = canonicalUri;
+        _webPlaybackProvider = provider;
+        if (applySync) {
+          existingCoordinator.updateAuthoritativeState(
+            _webPlaybackTarget(status),
+          );
+        }
+        if (mounted) {
+          setState(() {
+            _webPlaybackSnapshot = existingSession.snapshot;
+            _webPlaybackError = null;
+          });
+        }
+        return;
+      } on Object catch (error, stackTrace) {
+        debugPrint(
+          'Navigate official web playback failed: $error\n$stackTrace',
         );
       }
-      if (mounted) {
-        setState(() {
-          _webPlaybackSnapshot = existingSession.snapshot;
-          _webPlaybackError = null;
-        });
-      }
-      return;
     }
 
     if (existingSession != null || existingCoordinator != null) {
