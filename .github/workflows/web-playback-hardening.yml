@@ -17,6 +17,9 @@ jobs:
         with:
           ref: feat/iqiyi-tencent-watch-together
 
+      - name: Set up pinned build toolchain
+        uses: ./.github/actions/setup-build
+
       - name: Apply guarded hardening fixes
         shell: bash
         run: |
@@ -93,30 +96,6 @@ jobs:
               raise SystemExit('setPhase anchor mismatch')
           bridge.write_text(text.replace(old_phase, new_phase))
 
-          identity_test = Path('test/features/room/domain/web_playback_media_identity_test.dart')
-          text = identity_test.read_text()
-          old_test = """    test('does not match different, collection-only, or cross-site media', () {
-              final first = WebPlaybackMediaIdentity.tryParse("""
-          new_test = """    test(
-              'does not match different, collection-only, or cross-site media',
-              () {
-                final first = WebPlaybackMediaIdentity.tryParse("""
-          if text.count(old_test) != 1:
-              raise SystemExit('identity formatter anchor mismatch')
-          text = text.replace(old_test, new_test)
-          old_tail = """      expect(first.isSameEpisodeAs(iqiyi), isFalse);
-            });
-
-            test('rejects insecure, off-site, and unsupported paths', () {"""
-          new_tail = """        expect(first.isSameEpisodeAs(iqiyi), isFalse);
-              },
-            );
-
-            test('rejects insecure, off-site, and unsupported paths', () {"""
-          if text.count(old_tail) != 1:
-              raise SystemExit('identity formatter tail anchor mismatch')
-          identity_test.write_text(text.replace(old_tail, new_tail))
-
           script_test = Path('test/features/room/domain/web_playback_bridge_script_test.dart')
           text = script_test.read_text()
           anchor = """    test(
@@ -149,8 +128,21 @@ jobs:
           script_test.write_text(text.replace(anchor, addition + anchor))
           PY
 
+          dart format \
+            lib/features/room/domain/web_playback_bridge_script.dart \
+            test/features/room/domain/web_playback_bridge_script_test.dart \
+            test/features/room/domain/web_playback_media_identity_test.dart
           rm .github/workflows/web-playback-hardening.yml
           git diff --check
+
+      - name: Run focused web playback tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter test \
+            test/features/room/domain/web_playback_bridge_script_test.dart \
+            test/features/room/domain/web_playback_media_identity_test.dart \
+            test/features/room/domain/web_playback_runtime_test.dart
 
       - name: Commit hardened implementation
         shell: bash
