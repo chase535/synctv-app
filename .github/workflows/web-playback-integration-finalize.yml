@@ -63,16 +63,19 @@ jobs:
 
           replace_once(
               'pubspec.yaml',
-              '  desktop_webview_window: ^0.3.0\n',
+              'dependency_overrides:\n',
               block(
+                  'dependency_overrides:',
                   '  # Temporary fork pin: surface WebView launch failures to callers.',
+                  '  # Remove once upstream releases the Future<void> launch contract.',
                   '  desktop_webview_window:',
                   '    git:',
                   '      url: https://github.com/chase535/flutter-plugins.git',
                   '      ref: 135f963364ca6a4cb7722f967d113103952bdae6',
                   '      path: packages/desktop_webview_window',
+                  '',
               ),
-              'desktop webview dependency',
+              'desktop webview dependency override',
           )
 
           replace_once(
