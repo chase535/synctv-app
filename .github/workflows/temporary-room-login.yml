@@ -1,0 +1,143 @@
+name: Temporary room login patch
+
+on:
+  push:
+    branches:
+      - feat/iqiyi-tencent-watch-together
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: feat/iqiyi-tencent-watch-together
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          channel: stable
+          flutter-version: '3.44.8'
+          architecture: x64
+          cache: true
+
+      - name: Add room official-login entry point
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/features/room/presentation/room_screen.dart')
+          text = path.read_text(encoding='utf-8')
+
+          old_import = "import 'package:synctv_app/core/presentation/notifications/app_notifications.dart';\n"
+          new_import = old_import + "import 'package:synctv_app/core/web/official_site_login_client.dart';\n"
+          if new_import not in text:
+              if old_import not in text:
+                  raise SystemExit('room_screen import anchor not found')
+              text = text.replace(old_import, new_import, 1)
+
+          old_method = '''  Future<void> _reopenWebPlayback() async {
+            final status = _currentStatus;
+            final rawUri = _webPlaybackUri ?? Uri.tryParse(status?.entry?.url ?? '');
+            if (status == null || rawUri == null) return;
+            _webPlaybackAutoOpenSuppressed = false;
+            await _applyWebPlaybackStatus(status, rawUri, applySync: true);
+          }
+
+'''
+          new_method = old_method + '''  Future<void> _openCurrentWebPlaybackLogin() async {
+            final provider = _webPlaybackProvider;
+            const loginClient = OfficialSiteLoginClient();
+            if (provider == null || !loginClient.supported) {
+              if (mounted) {
+                AppNotifications.showWarning(context, '当前平台暂不支持官方网页登录');
+              }
+              return;
+            }
+            try {
+              await loginClient.open(provider);
+              if (!mounted) return;
+              final providerName = provider == WebPlaybackProvider.iqiyi
+                  ? '爱奇艺'
+                  : '腾讯视频';
+              AppNotifications.showInfo(
+                context,
+                '已打开 $providerName 官方登录页；登录完成后切回官方播放器即可继续播放。',
+              );
+            } catch (error) {
+              if (mounted) {
+                AppNotifications.showError(context, '打开官方登录页失败：$error');
+              }
+            }
+          }
+
+'''
+          if '_openCurrentWebPlaybackLogin()' not in text:
+              if old_method not in text:
+                  raise SystemExit('room_screen reopen method anchor not found')
+              text = text.replace(old_method, new_method, 1)
+
+          old_provider = '''    final providerName = _webPlaybackProvider == WebPlaybackProvider.iqiyi
+                ? '爱奇艺'
+                : '腾讯视频';
+'''
+          new_provider = old_provider + '''    final loginSupported = const OfficialSiteLoginClient().supported;
+'''
+          if 'final loginSupported = const OfficialSiteLoginClient().supported;' not in text:
+              if old_provider not in text:
+                  raise SystemExit('room_screen provider label anchor not found')
+              text = text.replace(old_provider, new_provider, 1)
+
+          old_controls = '''                label: Text(session == null ? '重新打开官方播放器' : '切回官方播放器'),
+              ),
+            const SizedBox(height: 12),
+            const Text(
+              '登录和会员状态仅保存在本机官方网页环境中；SyncTV 不读取或同步 Cookie、凭证或 DRM 信息。',
+              textAlign: TextAlign.center,
+            ),
+'''
+          new_controls = '''                label: Text(session == null ? '重新打开官方播放器' : '切回官方播放器'),
+              ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              key: const Key('room_official_web_login_button'),
+              onPressed: loginSupported
+                  ? () => unawaited(_openCurrentWebPlaybackLogin())
+                  : null,
+              icon: const Icon(Icons.login_rounded),
+              label: Text('登录 $providerName 账号'),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '登录窗口与官方播放器使用同一本机 WebView2 配置目录；房间同步只同步播放状态，不会向其他成员分发账号 Cookie、验证码或 DRM 信息。',
+              textAlign: TextAlign.center,
+            ),
+'''
+          if "room_official_web_login_button" not in text:
+              if old_controls not in text:
+                  raise SystemExit('room_screen web playback controls anchor not found')
+              text = text.replace(old_controls, new_controls, 1)
+
+          path.write_text(text, encoding='utf-8', newline='\n')
+          PY
+          dart format lib/features/room/presentation/room_screen.dart test/core/web/official_site_login_target_test.dart
+
+      - name: Commit patch and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/temporary-room-login.yml
+          git add lib/features/room/presentation/room_screen.dart test/core/web/official_site_login_target_test.dart
+          git commit -m 'feat: add account login control to room web playback'
+          git push origin HEAD:feat/iqiyi-tencent-watch-together
