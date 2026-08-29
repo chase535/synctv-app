@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:desktop_webview_window/desktop_webview_window.dart';
@@ -32,15 +33,28 @@ final class OfficialSiteLoginClient {
         userDataFolderWindows: profileDirectory,
       ),
     );
+    final closed = Completer<void>();
+    void handleClosed() {
+      if (webview.onClose.value && !closed.isCompleted) {
+        closed.complete();
+      }
+    }
 
-    // Login pages must keep the browser's original navigation request intact.
-    // In particular, SMS verification and OAuth flows may depend on POST
-    // bodies, referrers, user activation, popup/window.opener, and redirects.
-    await webview.setUrlRequestInterceptionEnabled(false);
-    await webview.launch(
-      officialSiteLoginEntryUri(provider).toString(),
-      triggerOnUrlRequestEvent: false,
-    );
-    await webview.bringToForeground(maximized: true);
+    webview.onClose.addListener(handleClosed);
+    try {
+      // Login pages must keep the browser's original navigation request intact.
+      // In particular, SMS verification and OAuth flows may depend on POST
+      // bodies, referrers, user activation, popup/window.opener, and redirects.
+      await webview.setUrlRequestInterceptionEnabled(false);
+      await webview.launch(
+        officialSiteLoginEntryUri(provider).toString(),
+        triggerOnUrlRequestEvent: false,
+      );
+      await webview.bringToForeground(maximized: true);
+      handleClosed();
+      await closed.future;
+    } finally {
+      webview.onClose.removeListener(handleClosed);
+    }
   }
 }
