@@ -13,14 +13,17 @@ void main() {
       expect(spec.startUri, Uri.parse('https://www.iqiyi.com/'));
       expect(spec.allowedDomain, 'iqiyi.com');
       expect(
-        providerWebSessionUriAllowed(
+        providerWebSessionUrlAllowed(
           Uri.parse('https://www.iqiyi.com/v_123.html'),
           spec,
         ),
         isTrue,
       );
       expect(
-        providerWebSessionDomainAllowed('.passport.iqiyi.com', spec.allowedDomain),
+        providerWebSessionDomainAllowed(
+          '.passport.iqiyi.com',
+          spec.allowedDomain,
+        ),
         isTrue,
       );
     });
@@ -33,7 +36,7 @@ void main() {
       expect(spec.startUri, Uri.parse('https://v.qq.com/'));
       expect(spec.allowedDomain, 'qq.com');
       expect(
-        providerWebSessionUriAllowed(
+        providerWebSessionUrlAllowed(
           Uri.parse('https://v.qq.com/x/cover/example.html'),
           spec,
         ),
@@ -54,18 +57,18 @@ void main() {
       );
 
       expect(
-        providerWebSessionUriAllowed(Uri.parse('http://www.iqiyi.com/'), iqiyi),
+        providerWebSessionUrlAllowed(Uri.parse('http://www.iqiyi.com/'), iqiyi),
         isFalse,
       );
       expect(
-        providerWebSessionUriAllowed(
+        providerWebSessionUrlAllowed(
           Uri.parse('https://iqiyi.com.evil.example/video'),
           iqiyi,
         ),
         isFalse,
       );
       expect(
-        providerWebSessionUriAllowed(
+        providerWebSessionUrlAllowed(
           Uri.parse('https://qq.com.evil.example/video'),
           tencent,
         ),

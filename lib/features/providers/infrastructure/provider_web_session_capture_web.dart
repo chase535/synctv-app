@@ -6,7 +6,8 @@ import 'package:synctv_app/src/generated/proto/source_config.pbenum.dart'
 
 bool get providerWebSessionCaptureSupported => false;
 
-Future<List<provider_common_service.WebSessionCookie>> captureProviderWebSession(
+Future<List<provider_common_service.WebSessionCookie>>
+captureProviderWebSession(
   BuildContext context,
   source_enum.SourceProvider provider,
 ) => throw UnsupportedError(

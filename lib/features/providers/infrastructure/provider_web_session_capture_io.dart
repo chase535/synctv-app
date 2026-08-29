@@ -18,7 +18,8 @@ bool get providerWebSessionCaptureSupported =>
     Platform.isAndroid ||
     Platform.isIOS;
 
-Future<List<provider_common_service.WebSessionCookie>> captureProviderWebSession(
+Future<List<provider_common_service.WebSessionCookie>>
+captureProviderWebSession(
   BuildContext context,
   source_enum.SourceProvider provider,
 ) async {
@@ -66,7 +67,7 @@ Future<List<provider_common_service.WebSessionCookie>> _captureDesktop(
     if (reading || webview == null) return;
     reading = true;
     try {
-      final cookies = await webview!.getAllCookies();
+      final cookies = await webview.getAllCookies();
       latest = [
         for (final cookie in cookies)
           if (providerWebSessionDomainAllowed(
@@ -178,10 +179,7 @@ Future<List<provider_common_service.WebSessionCookie>> _captureEmbedded(
     final cookies = await cookieManager.getCookies(domain: spec.startUri);
     final result = [
       for (final cookie in cookies)
-        if (providerWebSessionDomainAllowed(
-          cookie.domain,
-          spec.allowedDomain,
-        ))
+        if (providerWebSessionDomainAllowed(cookie.domain, spec.allowedDomain))
           provider_common_service.WebSessionCookie(
             name: cookie.name,
             value: cookie.value,

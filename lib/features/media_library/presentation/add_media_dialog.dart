@@ -34,6 +34,7 @@ import 'package:synctv_app/features/media_library/presentation/add_media/provide
 import 'package:synctv_app/features/media_library/presentation/add_media/qnap_add_media_form.dart';
 import 'package:synctv_app/features/media_library/presentation/add_media/seafile_add_media_form.dart';
 import 'package:synctv_app/features/media_library/presentation/add_media/tiktok_add_media_form.dart';
+import 'package:synctv_app/features/media_library/presentation/add_media/provider_web_session_add_media_form.dart';
 import 'package:synctv_app/features/media_library/presentation/add_media/twitch_add_media_form.dart';
 import 'package:synctv_app/features/media_library/presentation/add_media/truenas_add_media_form.dart';
 import 'package:synctv_app/features/media_library/presentation/add_media/youtube_add_media_form.dart';
@@ -312,6 +313,8 @@ class _AddMediaDialogState extends State<AddMediaDialog> {
   bool _douyinHasDraft = false;
   List<TikTokBindInfo> _tiktokBinds = [];
   bool _tiktokHasDraft = false;
+  bool _iqiyiHasDraft = false;
+  bool _tencentVideoHasDraft = false;
   List<String> _huyaInstances = const [''];
   bool _huyaHasDraft = false;
   List<String> _douyuInstances = const [''];
@@ -711,6 +714,10 @@ class _AddMediaDialogState extends State<AddMediaDialog> {
         return 'Douyin';
       case 20:
         return 'TikTok';
+      case 21:
+        return 'iQiyi';
+      case 22:
+        return 'Tencent Video';
       default:
         return '';
     }
@@ -864,6 +871,20 @@ class _AddMediaDialogState extends State<AddMediaDialog> {
               subtitle: 'Video / Live / User Posts',
               icon: Icons.music_video_rounded,
               color: Color(0xFFFE2C55),
+            ),
+            const _MediaSourceSpec(
+              index: 21,
+              title: 'iQiyi',
+              subtitle: 'Official iqiyi.com video',
+              icon: Icons.ondemand_video_rounded,
+              color: Color(0xFF00BE06),
+            ),
+            const _MediaSourceSpec(
+              index: 22,
+              title: 'Tencent Video',
+              subtitle: 'Official v.qq.com video',
+              icon: Icons.play_circle_outline_rounded,
+              color: Color(0xFF00A4FF),
             ),
           ]
           .map((spec) {
@@ -1374,6 +1395,20 @@ class _AddMediaDialogState extends State<AddMediaDialog> {
           playlistId: widget.parentId ?? '',
           binds: _tiktokBinds,
           onDraftChanged: (value) => _tiktokHasDraft = value,
+        );
+      case 21:
+        return ProviderWebSessionAddMediaForm(
+          roomId: widget.roomId,
+          playlistId: widget.parentId ?? '',
+          provider: source_enum.SourceProvider.SOURCE_PROVIDER_IQIYI,
+          onDraftChanged: (value) => _iqiyiHasDraft = value,
+        );
+      case 22:
+        return ProviderWebSessionAddMediaForm(
+          roomId: widget.roomId,
+          playlistId: widget.parentId ?? '',
+          provider: source_enum.SourceProvider.SOURCE_PROVIDER_TENCENT_VIDEO,
+          onDraftChanged: (value) => _tencentVideoHasDraft = value,
         );
       default:
         return const SizedBox();
@@ -3238,6 +3273,8 @@ class _AddMediaDialogState extends State<AddMediaDialog> {
       18 => 'youtube',
       19 => 'douyin',
       20 => 'tiktok',
+      21 => 'iqiyi',
+      22 => 'tencentVideo',
       _ => null,
     };
   }
@@ -3416,7 +3453,9 @@ class _AddMediaDialogState extends State<AddMediaDialog> {
         _trueNasHasDraft ||
         _youtubeHasDraft ||
         _douyinHasDraft ||
-        _tiktokHasDraft) {
+        _tiktokHasDraft ||
+        _iqiyiHasDraft ||
+        _tencentVideoHasDraft) {
       return true;
     }
     return _directHeaders.any(

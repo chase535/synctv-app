@@ -66,14 +66,13 @@ class _ProviderWebSessionAddMediaFormState
       _urlController.text.trim().isNotEmpty ||
           _nameController.text.trim().isNotEmpty ||
           _shared ||
-          _proxyMode !=
-              source_enum.PlaybackProxyMode.PLAYBACK_PROXY_MODE_AUTO,
+          _proxyMode != source_enum.PlaybackProxyMode.PLAYBACK_PROXY_MODE_AUTO,
     );
   }
 
   Uri? get _validatedUri {
     final uri = Uri.tryParse(_urlController.text.trim());
-    if (uri == null || !providerWebSessionUriAllowed(uri, _spec)) return null;
+    if (uri == null || !providerWebSessionUrlAllowed(uri, _spec)) return null;
     return uri;
   }
 
@@ -261,9 +260,8 @@ class _ProviderWebSessionAddMediaFormState
               child: Text('Prefer direct playback'),
             ),
             DropdownMenuItem(
-              value: source_enum
-                  .PlaybackProxyMode
-                  .PLAYBACK_PROXY_MODE_DIRECT_ONLY,
+              value:
+                  source_enum.PlaybackProxyMode.PLAYBACK_PROXY_MODE_DIRECT_ONLY,
               child: Text('Direct playback only'),
             ),
           ],
