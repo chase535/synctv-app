@@ -128,13 +128,9 @@ Future<List<provider_common_service.WebSessionCookie>> _captureDesktop(
       } on Object {
         // The OS may keep WebView2 files open briefly after window shutdown.
       }
-    } else if (Platform.isLinux) {
-      try {
-        await WebviewWindow.clearAll();
-      } on Object {
-        // Best-effort cleanup of the desktop WebView cookie store.
-      }
     }
+    // Linux uses the plugin's shared WebView profile. Do not call clearAll()
+    // here because it would remove unrelated WebView cookies owned by SyncTV.
   }
 }
 
@@ -174,36 +170,30 @@ Future<List<provider_common_service.WebSessionCookie>> _captureEmbedded(
     ),
   );
 
-  try {
-    if (accepted != true) return const [];
-    final cookies = await cookieManager.getCookies(domain: spec.startUri);
-    final result = [
-      for (final cookie in cookies)
-        if (providerWebSessionDomainAllowed(cookie.domain, spec.allowedDomain))
-          provider_common_service.WebSessionCookie(
-            name: cookie.name,
-            value: cookie.value,
-            domain: cookie.domain,
-            path: cookie.path,
-            secure: true,
-            httpOnly: false,
-            sessionOnly: true,
-          ),
-    ];
-    if (result.isEmpty) {
-      throw StateError(
-        'No ${spec.label} session cookies were captured. '
-        'Complete sign-in before choosing “Use this session”.',
-      );
-    }
-    return result;
-  } finally {
-    // Raw provider cookies are never retained by SyncTV after the bind request.
-    // Clear the system WebView cookie jar as a best-effort privacy boundary.
-    try {
-      await cookieManager.clearCookies();
-    } on Object {
-      // The bind caller still receives only the in-memory snapshot above.
-    }
+  if (accepted != true) return const [];
+  final cookies = await cookieManager.getCookies(domain: spec.startUri);
+  final result = [
+    for (final cookie in cookies)
+      if (providerWebSessionDomainAllowed(cookie.domain, spec.allowedDomain))
+        provider_common_service.WebSessionCookie(
+          name: cookie.name,
+          value: cookie.value,
+          domain: cookie.domain,
+          path: cookie.path,
+          secure: true,
+          httpOnly: false,
+          sessionOnly: true,
+        ),
+  ];
+  if (result.isEmpty) {
+    throw StateError(
+      'No ${spec.label} session cookies were captured. '
+      'Complete sign-in before choosing “Use this session”.',
+    );
   }
+  // webview_flutter exposes only a global clearCookies() operation. Keep the
+  // platform WebView cookie jar intact rather than signing the user out of
+  // unrelated embedded sites; only this filtered snapshot crosses the bind
+  // boundary into SyncTV's provider credential service.
+  return result;
 }
