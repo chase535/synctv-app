@@ -46,6 +46,9 @@ class SourceConfigCodec {
       'truenas' => source_enum.SourceProvider.SOURCE_PROVIDER_TRUENAS,
       'youtube' => source_enum.SourceProvider.SOURCE_PROVIDER_YOUTUBE,
       'tiktok' => source_enum.SourceProvider.SOURCE_PROVIDER_TIKTOK,
+      'iqiyi' => source_enum.SourceProvider.SOURCE_PROVIDER_IQIYI,
+      'tencent_video' || 'tencentvideo' =>
+        source_enum.SourceProvider.SOURCE_PROVIDER_TENCENT_VIDEO,
       _ => source_enum.SourceProvider.SOURCE_PROVIDER_UNSPECIFIED,
     };
   }
@@ -73,6 +76,9 @@ class SourceConfigCodec {
       source_enum.SourceProvider.SOURCE_PROVIDER_TRUENAS => 'truenas',
       source_enum.SourceProvider.SOURCE_PROVIDER_YOUTUBE => 'youtube',
       source_enum.SourceProvider.SOURCE_PROVIDER_TIKTOK => 'tiktok',
+      source_enum.SourceProvider.SOURCE_PROVIDER_IQIYI => 'iqiyi',
+      source_enum.SourceProvider.SOURCE_PROVIDER_TENCENT_VIDEO =>
+        'tencentVideo',
       _ => '',
     };
   }
@@ -123,6 +129,10 @@ class SourceConfigCodec {
         source_enum.SourceProvider.SOURCE_PROVIDER_YOUTUBE,
       source_config.MediaSourceConfig_Provider.tiktok =>
         source_enum.SourceProvider.SOURCE_PROVIDER_TIKTOK,
+      source_config.MediaSourceConfig_Provider.iqiyi =>
+        source_enum.SourceProvider.SOURCE_PROVIDER_IQIYI,
+      source_config.MediaSourceConfig_Provider.tencentVideo =>
+        source_enum.SourceProvider.SOURCE_PROVIDER_TENCENT_VIDEO,
       source_config.MediaSourceConfig_Provider.notSet =>
         source_enum.SourceProvider.SOURCE_PROVIDER_UNSPECIFIED,
     };
@@ -321,6 +331,22 @@ class SourceConfigCodec {
             shared: config['shared'] == true,
           ),
         ),
+      source_enum.SourceProvider.SOURCE_PROVIDER_IQIYI =>
+        source_config.MediaSourceConfig(
+          iqiyi: source_config.IqiyiMediaSourceConfig(
+            url: _string(config['url']),
+            shared: config['shared'] == true,
+            proxyMode: _playbackProxyModeFromValue(config['proxyMode']),
+          ),
+        ),
+      source_enum.SourceProvider.SOURCE_PROVIDER_TENCENT_VIDEO =>
+        source_config.MediaSourceConfig(
+          tencentVideo: source_config.TencentVideoMediaSourceConfig(
+            url: _string(config['url']),
+            shared: config['shared'] == true,
+            proxyMode: _playbackProxyModeFromValue(config['proxyMode']),
+          ),
+        ),
       _ => null,
     };
   }
@@ -492,6 +518,16 @@ class SourceConfigCodec {
       source_config.MediaSourceConfig_Provider.youtube => {
         'videoId': config.youtube.videoId,
         if (config.youtube.shared) 'shared': true,
+      },
+      source_config.MediaSourceConfig_Provider.iqiyi => {
+        'url': config.iqiyi.url,
+        if (config.iqiyi.shared) 'shared': true,
+        ..._playbackProxyModeMap(config.iqiyi.proxyMode),
+      },
+      source_config.MediaSourceConfig_Provider.tencentVideo => {
+        'url': config.tencentVideo.url,
+        if (config.tencentVideo.shared) 'shared': true,
+        ..._playbackProxyModeMap(config.tencentVideo.proxyMode),
       },
       source_config.MediaSourceConfig_Provider.notSet => <String, dynamic>{},
     };

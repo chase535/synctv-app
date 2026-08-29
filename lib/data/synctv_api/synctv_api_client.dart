@@ -28,6 +28,8 @@ import 'package:synctv_app/src/generated/proto/providers/bilibili.pb.dart'
     as bilibili;
 import 'package:synctv_app/src/generated/proto/providers/common.pb.dart'
     as provider_common;
+import 'package:synctv_app/src/generated/proto/providers/common_service.pb.dart'
+    as provider_common_service;
 import 'package:synctv_app/src/generated/proto/providers/cloudreve.pb.dart'
     as cloudreve;
 import 'package:synctv_app/src/generated/proto/providers/emby.pb.dart' as emby;

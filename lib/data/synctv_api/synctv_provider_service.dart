@@ -10,6 +10,8 @@ import 'package:synctv_app/src/generated/proto/providers/bilibili.pbenum.dart'
     as bilibili_enum;
 import 'package:synctv_app/src/generated/proto/providers/common.pb.dart'
     as provider_common;
+import 'package:synctv_app/src/generated/proto/providers/common_service.pb.dart'
+    as provider_common_service;
 import 'package:synctv_app/src/generated/proto/providers/cloudreve.pb.dart'
     as cloudreve;
 import 'package:synctv_app/src/generated/proto/providers/emby.pb.dart' as emby;
@@ -68,6 +70,57 @@ class SyncTvProviderDomainService {
   Future<provider_common.PlaybackProxyPolicy> resolvePlaybackProxyPolicy(
     provider_common.DiscoveredSource source,
   ) => _api.providerCommon.resolvePlaybackProxyPolicy(source);
+
+  Future<provider_common_service.WebSessionBinding> bindWebSession({
+    required source_enum.SourceProvider provider,
+    required String label,
+    required List<provider_common_service.WebSessionCookie> cookies,
+  }) async {
+    _requireWebSessionProvider(provider);
+    final normalizedLabel = label.trim();
+    if (normalizedLabel.isEmpty) {
+      throw ArgumentError.value(label, 'label', '不能为空');
+    }
+    if (cookies.isEmpty) {
+      throw ArgumentError.value(cookies, 'cookies', '不能为空');
+    }
+    final response = await _api.providerCommon.bindWebSession(
+      provider_common_service.BindWebSessionRequest(
+        provider: provider,
+        label: normalizedLabel,
+        cookies: cookies,
+      ),
+    );
+    if (!response.hasBinding()) {
+      throw StateError('WebSession bind response is missing binding metadata');
+    }
+    return response.binding;
+  }
+
+  Future<List<provider_common_service.WebSessionBinding>>
+  listWebSessions() async {
+    final response = await _api.providerCommon.listWebSessions();
+    return response.bindings.toList(growable: false);
+  }
+
+  Future<bool> unbindWebSession(source_enum.SourceProvider provider) async {
+    _requireWebSessionProvider(provider);
+    final response = await _api.providerCommon.unbindWebSession(
+      provider_common_service.UnbindWebSessionRequest(provider: provider),
+    );
+    return response.removed;
+  }
+
+  static void _requireWebSessionProvider(source_enum.SourceProvider provider) {
+    if (provider != source_enum.SourceProvider.SOURCE_PROVIDER_IQIYI &&
+        provider != source_enum.SourceProvider.SOURCE_PROVIDER_TENCENT_VIDEO) {
+      throw ArgumentError.value(
+        provider,
+        'provider',
+        'WebSession only supports iQiyi and Tencent Video',
+      );
+    }
+  }
 
   Future<AlistLoginInfo> loginAList(
     String host,

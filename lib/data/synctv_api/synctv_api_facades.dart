@@ -3294,6 +3294,36 @@ class SyncTvProviderCommonApi {
       provider_common.DisableProviderInstanceResponse.create,
     );
   }
+
+  Future<provider_common_service.BindWebSessionResponse> bindWebSession(
+    provider_common_service.BindWebSessionRequest request,
+  ) {
+    return _api._send(
+      'POST',
+      '/api/providers/web-sessions',
+      provider_common_service.BindWebSessionResponse.create,
+      body: request,
+    );
+  }
+
+  Future<provider_common_service.ListWebSessionsResponse> listWebSessions() {
+    return _api._send(
+      'GET',
+      '/api/providers/web-sessions',
+      provider_common_service.ListWebSessionsResponse.create,
+    );
+  }
+
+  Future<provider_common_service.UnbindWebSessionResponse> unbindWebSession(
+    provider_common_service.UnbindWebSessionRequest request,
+  ) {
+    return _api._send(
+      'POST',
+      '/api/providers/web-sessions/unbind',
+      provider_common_service.UnbindWebSessionResponse.create,
+      body: request,
+    );
+  }
 }
 
 class SyncTvAlistProviderApi {
