@@ -1,0 +1,62 @@
+name: Feature Flutter test diagnostic
+
+on:
+  push:
+    branches:
+      - feat/iqiyi-tencent-shared-provider
+    paths:
+      - .github/workflows/feature-flutter-test-diagnostic.yml
+      - tool/feature_flutter_test_diagnostic.py
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      FLUTTER_VERSION: "3.44.8"
+      RUST_VERSION: "1.97.1"
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: feat/iqiyi-tencent-shared-provider
+          fetch-depth: 0
+
+      - name: Set up build toolchain
+        uses: ./.github/actions/setup-build
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          rust-version: ${{ env.RUST_VERSION }}
+
+      - name: Run full Flutter tests and capture machine output
+        id: tests
+        shell: bash
+        run: |
+          set +e
+          flutter test --machine > /tmp/flutter-test-machine.log 2>&1
+          status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Extract compact failure report
+        if: steps.tests.outputs.status != '0'
+        run: python3 tool/feature_flutter_test_diagnostic.py
+
+      - name: Commit diagnostic report
+        if: steps.tests.outputs.status != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tool/feature_flutter_test_failures.txt
+          git commit -m "Record failing Flutter tests"
+          git push origin HEAD:feat/iqiyi-tencent-shared-provider
+
+      - name: Fail when tests failed
+        if: steps.tests.outputs.status != '0'
+        run: exit 1
