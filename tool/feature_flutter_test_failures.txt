@@ -1,0 +1,18 @@
+FAIL: business UI uses app component wrappers
+FILE: file:///home/runner/work/synctv-app/synctv-app/test/ui_guard_test.dart
+Expected: <0>
+  Actual: <1>
+
+package:matcher                                     expect
+package:flutter_test/src/widget_tester.dart 473:18  expect
+test/ui_guard_test.dart 7:5                         main.<fn>
+---
+FAIL: source dependencies follow the application architecture
+FILE: file:///home/runner/work/synctv-app/synctv-app/test/architecture_test.dart
+Expected: <0>
+  Actual: <1>
+
+package:matcher                                     expect
+package:flutter_test/src/widget_tester.dart 473:18  expect
+test/architecture_test.dart 8:5                     main.<fn>
+---
