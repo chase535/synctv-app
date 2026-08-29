@@ -44,13 +44,16 @@ jobs:
             lib/features/media_library/presentation/add_media/provider_web_session_add_media_form.dart \
             lib/features/providers/domain/provider_web_session_spec.dart \
             lib/features/providers/infrastructure/provider_web_session_capture_io.dart \
-            lib/features/providers/infrastructure/provider_web_session_capture_web.dart
+            lib/features/providers/infrastructure/provider_web_session_capture_web.dart \
+            test/features/providers/provider_web_session_spec_test.dart
 
       - name: Analyze application
         run: dart analyze --fatal-infos
 
-      - name: Run source configuration tests
-        run: flutter test test/contracts/source_config_codec_test.dart
+      - name: Run feature tests
+        run: |
+          flutter test test/contracts/source_config_codec_test.dart
+          flutter test test/features/providers/provider_web_session_spec_test.dart
 
       - name: Commit UI implementation and remove helper files
         run: |
@@ -65,7 +68,8 @@ jobs:
             lib/features/media_library/presentation/add_media/provider_web_session_add_media_form.dart \
             lib/features/providers/domain/provider_web_session_spec.dart \
             lib/features/providers/infrastructure/provider_web_session_capture_io.dart \
-            lib/features/providers/infrastructure/provider_web_session_capture_web.dart
+            lib/features/providers/infrastructure/provider_web_session_capture_web.dart \
+            test/features/providers/provider_web_session_spec_test.dart
           git diff --cached --exit-code && exit 0 || true
           git commit -m "Add iQiyi and Tencent WebSession media UI"
           git push origin HEAD:feat/iqiyi-tencent-shared-provider
