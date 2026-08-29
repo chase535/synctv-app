@@ -427,6 +427,7 @@ class _RoomScreenState extends State<RoomScreen>
   WebPlaybackSnapshot? _webPlaybackSnapshot;
   String? _webPlaybackError;
   bool _webPlaybackOpening = false;
+  bool _webPlaybackLoginOpening = false;
   bool _webPlaybackAutoOpenSuppressed = false;
   int _webPlaybackGeneration = 0;
 
@@ -2897,30 +2898,58 @@ class _RoomScreenState extends State<RoomScreen>
   }
 
   Future<void> _openCurrentWebPlaybackLogin() async {
-    final provider = _webPlaybackProvider;
-    const loginClient = OfficialSiteLoginClient();
-    if (provider == null || !loginClient.supported) {
-      if (mounted) {
-        AppNotifications.showWarning(context, '当剎平台暂不支持官方网页登录');
-      }
-      return;
+  final provider = _webPlaybackProvider;
+  const loginClient = OfficialSiteLoginClient();
+  if (provider == null || !loginClient.supported) {
+    if (mounted) {
+      AppNotifications.showWarning(context, '当前平台暂不支持官方网页登录');
     }
-    try {
-      await loginClient.open(provider);
-      if (!mounted) return;
-      final providerName = provider == WebPlaybackProvider.iqiyi
-          ? '爱奇艺'
-          : '腾讯视频';
+    return;
+  }
+  if (_webPlaybackLoginOpening) return;
+
+  final providerName = provider == WebPlaybackProvider.iqiyi
+      ? '爱奇艺'
+      : '腾讯视频';
+  if (mounted) setState(() => _webPlaybackLoginOpening = true);
+  try {
+    // The login client completes only after its official WebView closes.
+    // Login and playback reuse the same persistent WebView2 profile, so
+    // recreating playback applies the latest official login state locally.
+    await loginClient.open(provider);
+    if (!mounted || _isDisposing) return;
+
+    final status = _currentStatus;
+    final rawUri = _webPlaybackUri ??
+        Uri.tryParse(status?.entry?.url ?? '');
+    if (status != null &&
+        rawUri != null &&
+        _webPlaybackProvider == provider) {
+      await _disposeWebPlayback(clearUri: false);
+      if (!mounted || _isDisposing) return;
+      _webPlaybackAutoOpenSuppressed = false;
+      await _applyWebPlaybackStatus(status, rawUri, applySync: true);
+      if (!mounted || _isDisposing) return;
+      AppNotifications.showSuccess(
+        context,
+        '$providerName 登录窗口已关闭，已重新加载官方播放器以应用最新登录状态。',
+      );
+    } else {
       AppNotifications.showInfo(
         context,
-        '已打开 $providerName 官方登录页；登录完成后切回官方播放器即可继续播放。',
+        '$providerName 登录窗口已关闭。',
       );
-    } catch (error) {
-      if (mounted) {
-        AppNotifications.showError(context, '打开官方版登录页失败：$error');
-      }
+    }
+  } catch (error) {
+    if (mounted) {
+      AppNotifications.showError(context, '打开官方登录页失败：$error');
+    }
+  } finally {
+    if (mounted && !_isDisposing) {
+      setState(() => _webPlaybackLoginOpening = false);
     }
   }
+}
 
   Widget _buildWebPlaybackState() {
     final providerName = _webPlaybackProvider == WebPlaybackProvider.iqiyi
@@ -2990,16 +3019,25 @@ class _RoomScreenState extends State<RoomScreen>
               ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              key: const Key('room_official_web_login_button'),
-              onPressed: loginSupported
-                  ? () => unawaited(_openCurrentWebPlaybackLogin())
-                  : null,
-              icon: const Icon(Icons.login_rounded),
-              label: Text('登录 $providerName 账号'),
-            ),
+    key: const Key('room_official_web_login_button'),
+    onPressed: loginSupported && !_webPlaybackLoginOpening
+        ? () => unawaited(_openCurrentWebPlaybackLogin())
+        : null,
+    icon: _webPlaybackLoginOpening
+        ? const SizedBox.square(
+            dimension: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : const Icon(Icons.login_rounded),
+    label: Text(
+      _webPlaybackLoginOpening
+          ? '等待关闭登录窗口…'
+          : '登录 $providerName 账号',
+    ),
+  ),
             const SizedBox(height: 12),
             const Text(
-              '登录窗口与官方播放器使用同一本机 WebView2 配置目录；房间同步只同步播放状态，不会向其他成员分发账号 Cookie、验证码或 DRM 信息。',
+              '每位房间成员仍需通过爱奇艺或腾讯视频官方页面在自己的设备上获得播放授权；登录窗口关闭后会自动重新加载当前播放器。房间同步只同步播放状态，不分发 Cookie、验证码、会员凭证或 DRM 信息。',
               textAlign: TextAlign.center,
             ),
           ],
