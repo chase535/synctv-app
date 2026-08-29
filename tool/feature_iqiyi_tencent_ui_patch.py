@@ -1,5 +1,14 @@
 from pathlib import Path
 
+
+def replace_once_in(path: Path, old: str, new: str, name: str) -> None:
+    text = path.read_text()
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f"expected exactly one {name} anchor in {path}, found {count}")
+    path.write_text(text.replace(old, new, 1))
+
+
 path = Path("lib/features/media_library/presentation/add_media_dialog.dart")
 text = path.read_text()
 
@@ -195,3 +204,32 @@ replace_once(
 )
 
 path.write_text(text)
+
+form_path = Path(
+    "lib/features/media_library/presentation/add_media/provider_web_session_add_media_form.dart"
+)
+replace_once_in(
+    form_path,
+    "providerWebSessionUriAllowed(uri, _spec)",
+    "providerWebSessionUrlAllowed(uri, _spec)",
+    "WebSession URL validation call",
+)
+
+test_path = Path("test/features/providers/provider_web_session_spec_test.dart")
+test_text = test_path.read_text()
+count = test_text.count("providerWebSessionUriAllowed")
+if count != 5:
+    raise SystemExit(f"expected 5 WebSession URI test calls, found {count}")
+test_path.write_text(
+    test_text.replace("providerWebSessionUriAllowed", "providerWebSessionUrlAllowed")
+)
+
+capture_path = Path(
+    "lib/features/providers/infrastructure/provider_web_session_capture_io.dart"
+)
+replace_once_in(
+    capture_path,
+    "final cookies = await webview!.getAllCookies();",
+    "final cookies = await webview.getAllCookies();",
+    "desktop WebView cookie snapshot",
+)
