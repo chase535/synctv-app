@@ -201,6 +201,10 @@ const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>>
       $2.TikTokVideoSourceConfig$json,
   '.synctv.source_config.TikTokLiveSourceConfig':
       $2.TikTokLiveSourceConfig$json,
+  '.synctv.source_config.IqiyiMediaSourceConfig':
+      $2.IqiyiMediaSourceConfig$json,
+  '.synctv.source_config.TencentVideoMediaSourceConfig':
+      $2.TencentVideoMediaSourceConfig$json,
   '.synctv.source_config.PlaylistSourceConfig': $2.PlaylistSourceConfig$json,
   '.synctv.source_config.BilibiliPlaylistSourceConfig':
       $2.BilibiliPlaylistSourceConfig$json,

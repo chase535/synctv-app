@@ -9170,6 +9170,170 @@ class TikTokPlaylistSourceConfig extends $pb.GeneratedMessage {
   void clearShared() => $_clearField(2);
 }
 
+class IqiyiMediaSourceConfig extends $pb.GeneratedMessage {
+  factory IqiyiMediaSourceConfig({
+    $core.String? url,
+    $core.bool? shared,
+    PlaybackProxyMode? proxyMode,
+  }) {
+    final result = create();
+    if (url != null) result.url = url;
+    if (shared != null) result.shared = shared;
+    if (proxyMode != null) result.proxyMode = proxyMode;
+    return result;
+  }
+
+  IqiyiMediaSourceConfig._();
+
+  factory IqiyiMediaSourceConfig.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory IqiyiMediaSourceConfig.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'IqiyiMediaSourceConfig',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'synctv.source_config'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'url')
+    ..aOB(2, _omitFieldNames ? '' : 'shared')
+    ..aE<PlaybackProxyMode>(3, _omitFieldNames ? '' : 'proxyMode',
+        enumValues: PlaybackProxyMode.values)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  IqiyiMediaSourceConfig clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  IqiyiMediaSourceConfig copyWith(
+          void Function(IqiyiMediaSourceConfig) updates) =>
+      super.copyWith((message) => updates(message as IqiyiMediaSourceConfig))
+          as IqiyiMediaSourceConfig;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static IqiyiMediaSourceConfig create() => IqiyiMediaSourceConfig._();
+  @$core.override
+  IqiyiMediaSourceConfig createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static IqiyiMediaSourceConfig getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<IqiyiMediaSourceConfig>(create);
+  static IqiyiMediaSourceConfig? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get url => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set url($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasUrl() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearUrl() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get shared => $_getBF(1);
+  @$pb.TagNumber(2)
+  set shared($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasShared() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearShared() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  PlaybackProxyMode get proxyMode => $_getN(2);
+  @$pb.TagNumber(3)
+  set proxyMode(PlaybackProxyMode value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasProxyMode() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearProxyMode() => $_clearField(3);
+}
+
+class TencentVideoMediaSourceConfig extends $pb.GeneratedMessage {
+  factory TencentVideoMediaSourceConfig({
+    $core.String? url,
+    $core.bool? shared,
+    PlaybackProxyMode? proxyMode,
+  }) {
+    final result = create();
+    if (url != null) result.url = url;
+    if (shared != null) result.shared = shared;
+    if (proxyMode != null) result.proxyMode = proxyMode;
+    return result;
+  }
+
+  TencentVideoMediaSourceConfig._();
+
+  factory TencentVideoMediaSourceConfig.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory TencentVideoMediaSourceConfig.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'TencentVideoMediaSourceConfig',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'synctv.source_config'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'url')
+    ..aOB(2, _omitFieldNames ? '' : 'shared')
+    ..aE<PlaybackProxyMode>(3, _omitFieldNames ? '' : 'proxyMode',
+        enumValues: PlaybackProxyMode.values)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  TencentVideoMediaSourceConfig clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  TencentVideoMediaSourceConfig copyWith(
+          void Function(TencentVideoMediaSourceConfig) updates) =>
+      super.copyWith(
+              (message) => updates(message as TencentVideoMediaSourceConfig))
+          as TencentVideoMediaSourceConfig;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static TencentVideoMediaSourceConfig create() =>
+      TencentVideoMediaSourceConfig._();
+  @$core.override
+  TencentVideoMediaSourceConfig createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static TencentVideoMediaSourceConfig getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<TencentVideoMediaSourceConfig>(create);
+  static TencentVideoMediaSourceConfig? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get url => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set url($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasUrl() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearUrl() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get shared => $_getBF(1);
+  @$pb.TagNumber(2)
+  set shared($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasShared() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearShared() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  PlaybackProxyMode get proxyMode => $_getN(2);
+  @$pb.TagNumber(3)
+  set proxyMode(PlaybackProxyMode value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasProxyMode() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearProxyMode() => $_clearField(3);
+}
+
 enum MediaSourceConfig_Provider {
   directUrl,
   bilibili,
@@ -9192,6 +9356,8 @@ enum MediaSourceConfig_Provider {
   truenas,
   youtube,
   tiktok,
+  iqiyi,
+  tencentVideo,
   notSet
 }
 
@@ -9218,6 +9384,8 @@ class MediaSourceConfig extends $pb.GeneratedMessage {
     TrueNasMediaSourceConfig? truenas,
     YoutubeMediaSourceConfig? youtube,
     TikTokMediaSourceConfig? tiktok,
+    IqiyiMediaSourceConfig? iqiyi,
+    TencentVideoMediaSourceConfig? tencentVideo,
   }) {
     final result = create();
     if (directUrl != null) result.directUrl = directUrl;
@@ -9241,6 +9409,8 @@ class MediaSourceConfig extends $pb.GeneratedMessage {
     if (truenas != null) result.truenas = truenas;
     if (youtube != null) result.youtube = youtube;
     if (tiktok != null) result.tiktok = tiktok;
+    if (iqiyi != null) result.iqiyi = iqiyi;
+    if (tencentVideo != null) result.tencentVideo = tencentVideo;
     return result;
   }
 
@@ -9276,6 +9446,8 @@ class MediaSourceConfig extends $pb.GeneratedMessage {
     19: MediaSourceConfig_Provider.truenas,
     20: MediaSourceConfig_Provider.youtube,
     21: MediaSourceConfig_Provider.tiktok,
+    22: MediaSourceConfig_Provider.iqiyi,
+    23: MediaSourceConfig_Provider.tencentVideo,
     0: MediaSourceConfig_Provider.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -9304,7 +9476,9 @@ class MediaSourceConfig extends $pb.GeneratedMessage {
       18,
       19,
       20,
-      21
+      21,
+      22,
+      23
     ])
     ..aOM<DirectUrlMediaSourceConfig>(1, _omitFieldNames ? '' : 'directUrl',
         subBuilder: DirectUrlMediaSourceConfig.create)
@@ -9348,6 +9522,11 @@ class MediaSourceConfig extends $pb.GeneratedMessage {
         subBuilder: YoutubeMediaSourceConfig.create)
     ..aOM<TikTokMediaSourceConfig>(21, _omitFieldNames ? '' : 'tiktok',
         subBuilder: TikTokMediaSourceConfig.create)
+    ..aOM<IqiyiMediaSourceConfig>(22, _omitFieldNames ? '' : 'iqiyi',
+        subBuilder: IqiyiMediaSourceConfig.create)
+    ..aOM<TencentVideoMediaSourceConfig>(
+        23, _omitFieldNames ? '' : 'tencentVideo',
+        subBuilder: TencentVideoMediaSourceConfig.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -9390,6 +9569,8 @@ class MediaSourceConfig extends $pb.GeneratedMessage {
   @$pb.TagNumber(19)
   @$pb.TagNumber(20)
   @$pb.TagNumber(21)
+  @$pb.TagNumber(22)
+  @$pb.TagNumber(23)
   MediaSourceConfig_Provider whichProvider() =>
       _MediaSourceConfig_ProviderByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(1)
@@ -9413,6 +9594,8 @@ class MediaSourceConfig extends $pb.GeneratedMessage {
   @$pb.TagNumber(19)
   @$pb.TagNumber(20)
   @$pb.TagNumber(21)
+  @$pb.TagNumber(22)
+  @$pb.TagNumber(23)
   void clearProvider() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -9645,6 +9828,29 @@ class MediaSourceConfig extends $pb.GeneratedMessage {
   void clearTiktok() => $_clearField(21);
   @$pb.TagNumber(21)
   TikTokMediaSourceConfig ensureTiktok() => $_ensure(20);
+
+  @$pb.TagNumber(22)
+  IqiyiMediaSourceConfig get iqiyi => $_getN(21);
+  @$pb.TagNumber(22)
+  set iqiyi(IqiyiMediaSourceConfig value) => $_setField(22, value);
+  @$pb.TagNumber(22)
+  $core.bool hasIqiyi() => $_has(21);
+  @$pb.TagNumber(22)
+  void clearIqiyi() => $_clearField(22);
+  @$pb.TagNumber(22)
+  IqiyiMediaSourceConfig ensureIqiyi() => $_ensure(21);
+
+  @$pb.TagNumber(23)
+  TencentVideoMediaSourceConfig get tencentVideo => $_getN(22);
+  @$pb.TagNumber(23)
+  set tencentVideo(TencentVideoMediaSourceConfig value) =>
+      $_setField(23, value);
+  @$pb.TagNumber(23)
+  $core.bool hasTencentVideo() => $_has(22);
+  @$pb.TagNumber(23)
+  void clearTencentVideo() => $_clearField(23);
+  @$pb.TagNumber(23)
+  TencentVideoMediaSourceConfig ensureTencentVideo() => $_ensure(22);
 }
 
 enum PlaylistSourceConfig_Provider {

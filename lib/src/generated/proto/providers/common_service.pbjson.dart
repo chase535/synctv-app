@@ -18,6 +18,203 @@ import 'dart:typed_data' as $typed_data;
 import '../source_config.pbjson.dart' as $1;
 import 'common.pbjson.dart' as $0;
 
+@$core.Deprecated('Use webSessionCookieDescriptor instead')
+const WebSessionCookie$json = {
+  '1': 'WebSessionCookie',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'name'},
+    {'1': 'value', '3': 2, '4': 1, '5': 9, '10': 'value'},
+    {'1': 'domain', '3': 3, '4': 1, '5': 9, '8': {}, '10': 'domain'},
+    {'1': 'path', '3': 4, '4': 1, '5': 9, '10': 'path'},
+    {'1': 'secure', '3': 5, '4': 1, '5': 8, '10': 'secure'},
+    {'1': 'http_only', '3': 6, '4': 1, '5': 8, '10': 'httpOnly'},
+    {'1': 'session_only', '3': 7, '4': 1, '5': 8, '10': 'sessionOnly'},
+    {
+      '1': 'expires_at',
+      '3': 8,
+      '4': 1,
+      '5': 3,
+      '9': 0,
+      '10': 'expiresAt',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_expires_at'},
+  ],
+};
+
+/// Descriptor for `WebSessionCookie`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List webSessionCookieDescriptor = $convert.base64Decode(
+    'ChBXZWJTZXNzaW9uQ29va2llEhsKBG5hbWUYASABKAlCB7pIBHICEAFSBG5hbWUSFAoFdmFsdW'
+    'UYAiABKAlSBXZhbHVlEh8KBmRvbWFpbhgDIAEoCUIHukgEcgIQAVIGZG9tYWluEhIKBHBhdGgY'
+    'BCABKAlSBHBhdGgSFgoGc2VjdXJlGAUgASgIUgZzZWN1cmUSGwoJaHR0cF9vbmx5GAYgASgIUg'
+    'hodHRwT25seRIhCgxzZXNzaW9uX29ubHkYByABKAhSC3Nlc3Npb25Pbmx5EiIKCmV4cGlyZXNf'
+    'YXQYCCABKANIAFIJZXhwaXJlc0F0iAEBQg0KC19leHBpcmVzX2F0');
+
+@$core.Deprecated('Use bindWebSessionRequestDescriptor instead')
+const BindWebSessionRequest$json = {
+  '1': 'BindWebSessionRequest',
+  '2': [
+    {
+      '1': 'provider',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.synctv.source_config.SourceProvider',
+      '8': {},
+      '10': 'provider'
+    },
+    {'1': 'label', '3': 2, '4': 1, '5': 9, '8': {}, '10': 'label'},
+    {
+      '1': 'cookies',
+      '3': 3,
+      '4': 3,
+      '5': 11,
+      '6': '.synctv.provider.common.WebSessionCookie',
+      '8': {},
+      '10': 'cookies'
+    },
+  ],
+};
+
+/// Descriptor for `BindWebSessionRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List bindWebSessionRequestDescriptor = $convert.base64Decode(
+    'ChVCaW5kV2ViU2Vzc2lvblJlcXVlc3QSTAoIcHJvdmlkZXIYASABKA4yJC5zeW5jdHYuc291cm'
+    'NlX2NvbmZpZy5Tb3VyY2VQcm92aWRlckIKukgHggEEEAEgAFIIcHJvdmlkZXISHgoFbGFiZWwY'
+    'AiABKAlCCLpIBXIDGIABUgVsYWJlbBJPCgdjb29raWVzGAMgAygLMiguc3luY3R2LnByb3ZpZG'
+    'VyLmNvbW1vbi5XZWJTZXNzaW9uQ29va2llQgu6SAiSAQUIARCAAlIHY29va2llcw==');
+
+@$core.Deprecated('Use bindWebSessionResponseDescriptor instead')
+const BindWebSessionResponse$json = {
+  '1': 'BindWebSessionResponse',
+  '2': [
+    {
+      '1': 'binding',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.synctv.provider.common.WebSessionBinding',
+      '8': {},
+      '10': 'binding'
+    },
+  ],
+};
+
+/// Descriptor for `BindWebSessionResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List bindWebSessionResponseDescriptor =
+    $convert.base64Decode(
+        'ChZCaW5kV2ViU2Vzc2lvblJlc3BvbnNlEksKB2JpbmRpbmcYASABKAsyKS5zeW5jdHYucHJvdm'
+        'lkZXIuY29tbW9uLldlYlNlc3Npb25CaW5kaW5nQga6SAPIAQFSB2JpbmRpbmc=');
+
+@$core.Deprecated('Use listWebSessionsRequestDescriptor instead')
+const ListWebSessionsRequest$json = {
+  '1': 'ListWebSessionsRequest',
+};
+
+/// Descriptor for `ListWebSessionsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listWebSessionsRequestDescriptor =
+    $convert.base64Decode('ChZMaXN0V2ViU2Vzc2lvbnNSZXF1ZXN0');
+
+@$core.Deprecated('Use listWebSessionsResponseDescriptor instead')
+const ListWebSessionsResponse$json = {
+  '1': 'ListWebSessionsResponse',
+  '2': [
+    {
+      '1': 'bindings',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.synctv.provider.common.WebSessionBinding',
+      '10': 'bindings'
+    },
+  ],
+};
+
+/// Descriptor for `ListWebSessionsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listWebSessionsResponseDescriptor =
+    $convert.base64Decode(
+        'ChdMaXN0V2ViU2Vzc2lvbnNSZXNwb25zZRJFCghiaW5kaW5ncxgBIAMoCzIpLnN5bmN0di5wcm'
+        '92aWRlci5jb21tb24uV2ViU2Vzc2lvbkJpbmRpbmdSCGJpbmRpbmdz');
+
+@$core.Deprecated('Use unbindWebSessionRequestDescriptor instead')
+const UnbindWebSessionRequest$json = {
+  '1': 'UnbindWebSessionRequest',
+  '2': [
+    {
+      '1': 'provider',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.synctv.source_config.SourceProvider',
+      '8': {},
+      '10': 'provider'
+    },
+  ],
+};
+
+/// Descriptor for `UnbindWebSessionRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List unbindWebSessionRequestDescriptor =
+    $convert.base64Decode(
+        'ChdVbmJpbmRXZWJTZXNzaW9uUmVxdWVzdBJMCghwcm92aWRlchgBIAEoDjIkLnN5bmN0di5zb3'
+        'VyY2VfY29uZmlnLlNvdXJjZVByb3ZpZGVyQgq6SAeCAQQQASAAUghwcm92aWRlcg==');
+
+@$core.Deprecated('Use unbindWebSessionResponseDescriptor instead')
+const UnbindWebSessionResponse$json = {
+  '1': 'UnbindWebSessionResponse',
+  '2': [
+    {'1': 'removed', '3': 1, '4': 1, '5': 8, '10': 'removed'},
+  ],
+};
+
+/// Descriptor for `UnbindWebSessionResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List unbindWebSessionResponseDescriptor =
+    $convert.base64Decode(
+        'ChhVbmJpbmRXZWJTZXNzaW9uUmVzcG9uc2USGAoHcmVtb3ZlZBgBIAEoCFIHcmVtb3ZlZA==');
+
+@$core.Deprecated('Use webSessionBindingDescriptor instead')
+const WebSessionBinding$json = {
+  '1': 'WebSessionBinding',
+  '2': [
+    {'1': 'credential_id', '3': 1, '4': 1, '5': 3, '10': 'credentialId'},
+    {
+      '1': 'provider',
+      '3': 2,
+      '4': 1,
+      '5': 14,
+      '6': '.synctv.source_config.SourceProvider',
+      '8': {},
+      '10': 'provider'
+    },
+    {'1': 'server_id', '3': 3, '4': 1, '5': 9, '10': 'serverId'},
+    {'1': 'label', '3': 4, '4': 1, '5': 9, '10': 'label'},
+    {'1': 'cookie_count', '3': 5, '4': 1, '5': 13, '10': 'cookieCount'},
+    {
+      '1': 'expires_at',
+      '3': 6,
+      '4': 1,
+      '5': 3,
+      '9': 0,
+      '10': 'expiresAt',
+      '17': true
+    },
+    {'1': 'created_at', '3': 7, '4': 1, '5': 3, '10': 'createdAt'},
+    {'1': 'updated_at', '3': 8, '4': 1, '5': 3, '10': 'updatedAt'},
+  ],
+  '8': [
+    {'1': '_expires_at'},
+  ],
+};
+
+/// Descriptor for `WebSessionBinding`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List webSessionBindingDescriptor = $convert.base64Decode(
+    'ChFXZWJTZXNzaW9uQmluZGluZxIjCg1jcmVkZW50aWFsX2lkGAEgASgDUgxjcmVkZW50aWFsSW'
+    'QSTAoIcHJvdmlkZXIYAiABKA4yJC5zeW5jdHYuc291cmNlX2NvbmZpZy5Tb3VyY2VQcm92aWRl'
+    'ckIKukgHggEEEAEgAFIIcHJvdmlkZXISGwoJc2VydmVyX2lkGAMgASgJUghzZXJ2ZXJJZBIUCg'
+    'VsYWJlbBgEIAEoCVIFbGFiZWwSIQoMY29va2llX2NvdW50GAUgASgNUgtjb29raWVDb3VudBIi'
+    'CgpleHBpcmVzX2F0GAYgASgDSABSCWV4cGlyZXNBdIgBARIdCgpjcmVhdGVkX2F0GAcgASgDUg'
+    'ljcmVhdGVkQXQSHQoKdXBkYXRlZF9hdBgIIAEoA1IJdXBkYXRlZEF0Qg0KC19leHBpcmVzX2F0');
+
 const $core.Map<$core.String, $core.dynamic> ProviderCommonServiceBase$json = {
   '1': 'ProviderCommonService',
   '2': [
@@ -85,6 +282,21 @@ const $core.Map<$core.String, $core.dynamic> ProviderCommonServiceBase$json = {
       '1': 'DisableProviderInstance',
       '2': '.synctv.provider.common.DisableProviderInstanceRequest',
       '3': '.synctv.provider.common.DisableProviderInstanceResponse'
+    },
+    {
+      '1': 'BindWebSession',
+      '2': '.synctv.provider.common.BindWebSessionRequest',
+      '3': '.synctv.provider.common.BindWebSessionResponse'
+    },
+    {
+      '1': 'ListWebSessions',
+      '2': '.synctv.provider.common.ListWebSessionsRequest',
+      '3': '.synctv.provider.common.ListWebSessionsResponse'
+    },
+    {
+      '1': 'UnbindWebSession',
+      '2': '.synctv.provider.common.UnbindWebSessionRequest',
+      '3': '.synctv.provider.common.UnbindWebSessionResponse'
     },
   ],
 };
@@ -186,6 +398,10 @@ const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>>
       $1.TikTokVideoSourceConfig$json,
   '.synctv.source_config.TikTokLiveSourceConfig':
       $1.TikTokLiveSourceConfig$json,
+  '.synctv.source_config.IqiyiMediaSourceConfig':
+      $1.IqiyiMediaSourceConfig$json,
+  '.synctv.source_config.TencentVideoMediaSourceConfig':
+      $1.TencentVideoMediaSourceConfig$json,
   '.synctv.source_config.PlaylistSourceConfig': $1.PlaylistSourceConfig$json,
   '.synctv.source_config.BilibiliPlaylistSourceConfig':
       $1.BilibiliPlaylistSourceConfig$json,
@@ -374,6 +590,17 @@ const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>>
       $0.DisableProviderInstanceRequest$json,
   '.synctv.provider.common.DisableProviderInstanceResponse':
       $0.DisableProviderInstanceResponse$json,
+  '.synctv.provider.common.BindWebSessionRequest': BindWebSessionRequest$json,
+  '.synctv.provider.common.WebSessionCookie': WebSessionCookie$json,
+  '.synctv.provider.common.BindWebSessionResponse': BindWebSessionResponse$json,
+  '.synctv.provider.common.WebSessionBinding': WebSessionBinding$json,
+  '.synctv.provider.common.ListWebSessionsRequest': ListWebSessionsRequest$json,
+  '.synctv.provider.common.ListWebSessionsResponse':
+      ListWebSessionsResponse$json,
+  '.synctv.provider.common.UnbindWebSessionRequest':
+      UnbindWebSessionRequest$json,
+  '.synctv.provider.common.UnbindWebSessionResponse':
+      UnbindWebSessionResponse$json,
 };
 
 /// Descriptor for `ProviderCommonService`. Decode as a `google.protobuf.ServiceDescriptorProto`.
@@ -409,4 +636,10 @@ final $typed_data.Uint8List providerCommonServiceDescriptor = $convert.base64Dec
     'b21tb24uRW5hYmxlUHJvdmlkZXJJbnN0YW5jZVJlc3BvbnNlEooBChdEaXNhYmxlUHJvdmlkZX'
     'JJbnN0YW5jZRI2LnN5bmN0di5wcm92aWRlci5jb21tb24uRGlzYWJsZVByb3ZpZGVySW5zdGFu'
     'Y2VSZXF1ZXN0Gjcuc3luY3R2LnByb3ZpZGVyLmNvbW1vbi5EaXNhYmxlUHJvdmlkZXJJbnN0YW'
-    '5jZVJlc3BvbnNl');
+    '5jZVJlc3BvbnNlEm8KDkJpbmRXZWJTZXNzaW9uEi0uc3luY3R2LnByb3ZpZGVyLmNvbW1vbi5C'
+    'aW5kV2ViU2Vzc2lvblJlcXVlc3QaLi5zeW5jdHYucHJvdmlkZXIuY29tbW9uLkJpbmRXZWJTZX'
+    'NzaW9uUmVzcG9uc2UScgoPTGlzdFdlYlNlc3Npb25zEi4uc3luY3R2LnByb3ZpZGVyLmNvbW1v'
+    'bi5MaXN0V2ViU2Vzc2lvbnNSZXF1ZXN0Gi8uc3luY3R2LnByb3ZpZGVyLmNvbW1vbi5MaXN0V2'
+    'ViU2Vzc2lvbnNSZXNwb25zZRJ1ChBVbmJpbmRXZWJTZXNzaW9uEi8uc3luY3R2LnByb3ZpZGVy'
+    'LmNvbW1vbi5VbmJpbmRXZWJTZXNzaW9uUmVxdWVzdBowLnN5bmN0di5wcm92aWRlci5jb21tb2'
+    '4uVW5iaW5kV2ViU2Vzc2lvblJlc3BvbnNl');

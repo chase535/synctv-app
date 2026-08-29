@@ -41,6 +41,8 @@ const SourceProvider$json = {
     {'1': 'SOURCE_PROVIDER_TRUENAS', '2': 19},
     {'1': 'SOURCE_PROVIDER_YOUTUBE', '2': 20},
     {'1': 'SOURCE_PROVIDER_TIKTOK', '2': 21},
+    {'1': 'SOURCE_PROVIDER_IQIYI', '2': 22},
+    {'1': 'SOURCE_PROVIDER_TENCENT_VIDEO', '2': 23},
   ],
 };
 
@@ -57,7 +59,8 @@ final $typed_data.Uint8List sourceProviderDescriptor = $convert.base64Decode(
     'FFNPVVJDRV9QUk9WSURFUl9RTkFQEA8SHAoYU09VUkNFX1BST1ZJREVSX1NZTk9MT0dZEBASHQ'
     'oZU09VUkNFX1BST1ZJREVSX05FWFRDTE9VRBAREhsKF1NPVVJDRV9QUk9WSURFUl9TRUFGSUxF'
     'EBISGwoXU09VUkNFX1BST1ZJREVSX1RSVUVOQVMQExIbChdTT1VSQ0VfUFJPVklERVJfWU9VVF'
-    'VCRRAUEhoKFlNPVVJDRV9QUk9WSURFUl9USUtUT0sQFQ==');
+    'VCRRAUEhoKFlNPVVJDRV9QUk9WSURFUl9USUtUT0sQFRIZChVTT1VSQ0VfUFJPVklERVJfSVFJ'
+    'WUkQFhIhCh1TT1VSQ0VfUFJPVklERVJfVEVOQ0VOVF9WSURFTxAX');
 
 @$core.Deprecated('Use playbackKindDescriptor instead')
 const PlaybackKind$json = {
@@ -3154,6 +3157,55 @@ final $typed_data.Uint8List tikTokPlaylistSourceConfigDescriptor =
         'ChpUaWtUb2tQbGF5bGlzdFNvdXJjZUNvbmZpZxIjCgdzZWNfdWlkGAEgASgJQgq6SAdyBRABGI'
         'ACUgZzZWNVaWQSFgoGc2hhcmVkGAIgASgIUgZzaGFyZWQ=');
 
+@$core.Deprecated('Use iqiyiMediaSourceConfigDescriptor instead')
+const IqiyiMediaSourceConfig$json = {
+  '1': 'IqiyiMediaSourceConfig',
+  '2': [
+    {'1': 'url', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'url'},
+    {'1': 'shared', '3': 2, '4': 1, '5': 8, '10': 'shared'},
+    {
+      '1': 'proxy_mode',
+      '3': 3,
+      '4': 1,
+      '5': 14,
+      '6': '.synctv.source_config.PlaybackProxyMode',
+      '8': {},
+      '10': 'proxyMode'
+    },
+  ],
+};
+
+/// Descriptor for `IqiyiMediaSourceConfig`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List iqiyiMediaSourceConfigDescriptor = $convert.base64Decode(
+    'ChZJcWl5aU1lZGlhU291cmNlQ29uZmlnEhwKA3VybBgBIAEoCUIKukgHcgUQARiAQFIDdXJsEh'
+    'YKBnNoYXJlZBgCIAEoCFIGc2hhcmVkElAKCnByb3h5X21vZGUYAyABKA4yJy5zeW5jdHYuc291'
+    'cmNlX2NvbmZpZy5QbGF5YmFja1Byb3h5TW9kZUIIukgFggECEAFSCXByb3h5TW9kZQ==');
+
+@$core.Deprecated('Use tencentVideoMediaSourceConfigDescriptor instead')
+const TencentVideoMediaSourceConfig$json = {
+  '1': 'TencentVideoMediaSourceConfig',
+  '2': [
+    {'1': 'url', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'url'},
+    {'1': 'shared', '3': 2, '4': 1, '5': 8, '10': 'shared'},
+    {
+      '1': 'proxy_mode',
+      '3': 3,
+      '4': 1,
+      '5': 14,
+      '6': '.synctv.source_config.PlaybackProxyMode',
+      '8': {},
+      '10': 'proxyMode'
+    },
+  ],
+};
+
+/// Descriptor for `TencentVideoMediaSourceConfig`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List tencentVideoMediaSourceConfigDescriptor = $convert.base64Decode(
+    'Ch1UZW5jZW50VmlkZW9NZWRpYVNvdXJjZUNvbmZpZxIcCgN1cmwYASABKAlCCrpIB3IFEAEYgE'
+    'BSA3VybBIWCgZzaGFyZWQYAiABKAhSBnNoYXJlZBJQCgpwcm94eV9tb2RlGAMgASgOMicuc3lu'
+    'Y3R2LnNvdXJjZV9jb25maWcuUGxheWJhY2tQcm94eU1vZGVCCLpIBYIBAhABUglwcm94eU1vZG'
+    'U=');
+
 @$core.Deprecated('Use mediaSourceConfigDescriptor instead')
 const MediaSourceConfig$json = {
   '1': 'MediaSourceConfig',
@@ -3347,6 +3399,24 @@ const MediaSourceConfig$json = {
       '9': 0,
       '10': 'tiktok'
     },
+    {
+      '1': 'iqiyi',
+      '3': 22,
+      '4': 1,
+      '5': 11,
+      '6': '.synctv.source_config.IqiyiMediaSourceConfig',
+      '9': 0,
+      '10': 'iqiyi'
+    },
+    {
+      '1': 'tencent_video',
+      '3': 23,
+      '4': 1,
+      '5': 11,
+      '6': '.synctv.source_config.TencentVideoMediaSourceConfig',
+      '9': 0,
+      '10': 'tencentVideo'
+    },
   ],
   '8': [
     {'1': 'provider'},
@@ -3383,7 +3453,10 @@ final $typed_data.Uint8List mediaSourceConfigDescriptor = $convert.base64Decode(
     '5hc01lZGlhU291cmNlQ29uZmlnSABSB3RydWVuYXMSSgoHeW91dHViZRgUIAEoCzIuLnN5bmN0'
     'di5zb3VyY2VfY29uZmlnLllvdXR1YmVNZWRpYVNvdXJjZUNvbmZpZ0gAUgd5b3V0dWJlEkcKBn'
     'Rpa3RvaxgVIAEoCzItLnN5bmN0di5zb3VyY2VfY29uZmlnLlRpa1Rva01lZGlhU291cmNlQ29u'
-    'ZmlnSABSBnRpa3Rva0IKCghwcm92aWRlcg==');
+    'ZmlnSABSBnRpa3RvaxJECgVpcWl5aRgWIAEoCzIsLnN5bmN0di5zb3VyY2VfY29uZmlnLklxaX'
+    'lpTWVkaWFTb3VyY2VDb25maWdIAFIFaXFpeWkSWgoNdGVuY2VudF92aWRlbxgXIAEoCzIzLnN5'
+    'bmN0di5zb3VyY2VfY29uZmlnLlRlbmNlbnRWaWRlb01lZGlhU291cmNlQ29uZmlnSABSDHRlbm'
+    'NlbnRWaWRlb0IKCghwcm92aWRlcg==');
 
 @$core.Deprecated('Use playlistSourceConfigDescriptor instead')
 const PlaylistSourceConfig$json = {
