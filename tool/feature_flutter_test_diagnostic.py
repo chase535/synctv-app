@@ -9,13 +9,10 @@ errors = {}
 failed = []
 raw_lines = []
 
-for raw in log_path.read_text(errors='replace').splitlines():
-    try:
-        event = json.loads(raw)
-    except json.JSONDecodeError:
-        if raw.strip():
-            raw_lines.append(raw.strip())
-        continue
+
+def handle_event(event):
+    if not isinstance(event, dict):
+        return
     event_type = event.get('type')
     if event_type == 'testStart':
         test = event.get('test') or {}
@@ -32,6 +29,20 @@ for raw in log_path.read_text(errors='replace').splitlines():
         test_id = event.get('testID')
         if test_id not in failed:
             failed.append(test_id)
+
+
+for raw in log_path.read_text(errors='replace').splitlines():
+    try:
+        decoded = json.loads(raw)
+    except json.JSONDecodeError:
+        if raw.strip():
+            raw_lines.append(raw.strip())
+        continue
+    if isinstance(decoded, list):
+        for event in decoded:
+            handle_event(event)
+    else:
+        handle_event(decoded)
 
 lines = []
 for test_id in failed:
