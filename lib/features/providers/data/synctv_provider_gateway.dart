@@ -17,6 +17,8 @@ import 'package:synctv_app/src/generated/proto/providers/douyu.pb.dart'
 import 'package:synctv_app/src/generated/proto/providers/huya.pb.dart' as huya;
 import 'package:synctv_app/src/generated/proto/providers/common.pb.dart'
     as provider_common;
+import 'package:synctv_app/src/generated/proto/providers/common_service.pb.dart'
+    as provider_common_service;
 import 'package:synctv_app/src/generated/proto/source_config.pb.dart'
     as source_config;
 import 'package:synctv_app/src/generated/proto/source_config.pbenum.dart'
@@ -77,6 +79,17 @@ final class SyncTvProviderGateway implements ProviderGateway {
     deviceId: deviceId,
     clientIntegrity: clientIntegrity,
     instanceName: instanceName,
+  );
+
+  @override
+  Future<provider_common_service.WebSessionBinding> bindWebSession({
+    required source_enum.SourceProvider provider,
+    required String label,
+    required List<provider_common_service.WebSessionCookie> cookies,
+  }) => SyncTvService.bindWebSession(
+    provider: provider,
+    label: label,
+    cookies: cookies,
   );
 
   @override
@@ -727,6 +740,10 @@ final class SyncTvProviderGateway implements ProviderGateway {
   );
 
   @override
+  Future<List<provider_common_service.WebSessionBinding>> listWebSessions() =>
+      SyncTvService.listWebSessions();
+
+  @override
   Future<youtube.ListResponse> listYoutube(youtube.ListRequest request) =>
       SyncTvService.listYoutube(request);
 
@@ -1097,6 +1114,10 @@ final class SyncTvProviderGateway implements ProviderGateway {
   @override
   Future<void> unbindTwitch(String serverId) =>
       SyncTvService.unbindTwitch(serverId);
+
+  @override
+  Future<bool> unbindWebSession(source_enum.SourceProvider provider) =>
+      SyncTvService.unbindWebSession(provider);
 
   @override
   Future<void> unbindYoutube(String serverId) =>

@@ -15,6 +15,8 @@ import 'package:synctv_app/src/generated/proto/providers/douyu.pb.dart'
 import 'package:synctv_app/src/generated/proto/providers/huya.pb.dart' as huya;
 import 'package:synctv_app/src/generated/proto/providers/common.pb.dart'
     as provider_common;
+import 'package:synctv_app/src/generated/proto/providers/common_service.pb.dart'
+    as provider_common_service;
 import 'package:synctv_app/src/generated/proto/source_config.pb.dart'
     as source_config;
 import 'package:synctv_app/src/generated/proto/source_config.pbenum.dart'
@@ -51,6 +53,12 @@ abstract interface class ProviderGateway {
     String deviceId = '',
     String clientIntegrity = '',
     String instanceName = '',
+  });
+
+  Future<provider_common_service.WebSessionBinding> bindWebSession({
+    required source_enum.SourceProvider provider,
+    required String label,
+    required List<provider_common_service.WebSessionCookie> cookies,
   });
 
   Future<YoutubeBindInfo> bindYoutube({
@@ -409,6 +417,8 @@ abstract interface class ProviderGateway {
     bool shared = false,
   });
 
+  Future<List<provider_common_service.WebSessionBinding>> listWebSessions();
+
   Future<youtube.ListResponse> listYoutube(youtube.ListRequest request);
 
   Future<AlistLoginInfo> loginAList(
@@ -621,6 +631,8 @@ abstract interface class ProviderGateway {
   Future<void> unbindTikTok(String serverId);
 
   Future<void> unbindTwitch(String serverId);
+
+  Future<bool> unbindWebSession(source_enum.SourceProvider provider);
 
   Future<void> unbindYoutube(String serverId);
 

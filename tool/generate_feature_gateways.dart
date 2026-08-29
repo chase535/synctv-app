@@ -347,6 +347,7 @@ const _providerMethods = <String>{
   'bindDouyin',
   'bindTikTok',
   'bindTwitch',
+  'bindWebSession',
   'bindYoutube',
   'checkBilibiliQrLogin',
   'createRtmpPublishKeyInfo',
@@ -398,6 +399,7 @@ const _providerMethods = <String>{
   'listSynologyVideos',
   'listTikTokUserPosts',
   'listTrueNasFiles',
+  'listWebSessions',
   'listTwitchCategoryStreams',
   'listTwitchChannelItems',
   'listTwitchFollowedLive',
@@ -448,6 +450,7 @@ const _providerMethods = <String>{
   'unbindDouyin',
   'unbindTikTok',
   'unbindTwitch',
+  'unbindWebSession',
   'unbindYoutube',
   'unlockSeafileLibrary',
 };

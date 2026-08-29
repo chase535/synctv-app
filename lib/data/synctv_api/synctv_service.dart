@@ -33,6 +33,8 @@ import 'package:synctv_app/src/generated/proto/providers/common.pbenum.dart'
     as provider_common_enum;
 import 'package:synctv_app/src/generated/proto/providers/common.pb.dart'
     as provider_common;
+import 'package:synctv_app/src/generated/proto/providers/common_service.pb.dart'
+    as provider_common_service;
 import 'package:synctv_app/src/generated/proto/providers/douyin.pb.dart'
     as douyin;
 import 'package:synctv_app/src/generated/proto/providers/huya.pb.dart' as huya;
@@ -1780,6 +1782,22 @@ class SyncTvService {
     }
     return const Duration(seconds: 5);
   }
+
+  static Future<provider_common_service.WebSessionBinding> bindWebSession({
+    required source_enum.SourceProvider provider,
+    required String label,
+    required List<provider_common_service.WebSessionCookie> cookies,
+  }) => _domains.providers.bindWebSession(
+    provider: provider,
+    label: label,
+    cookies: cookies,
+  );
+
+  static Future<List<provider_common_service.WebSessionBinding>>
+  listWebSessions() => _domains.providers.listWebSessions();
+
+  static Future<bool> unbindWebSession(source_enum.SourceProvider provider) =>
+      _domains.providers.unbindWebSession(provider);
 
   static Future<AlistLoginInfo> loginAList(
     String host,
