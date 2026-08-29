@@ -1,0 +1,45 @@
+name: Feature WebSession gateway
+
+on:
+  push:
+    branches:
+      - feat/iqiyi-tencent-shared-provider
+    paths:
+      - .github/workflows/feature-web-session-gateway.yml
+      - tool/feature_web_session_gateway_patch.py
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/iqiyi-tencent-shared-provider
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-build
+        with:
+          flutter-version: "3.44.8"
+          rust-version: "1.97.1"
+      - name: Apply WebSession gateway implementation
+        run: |
+          python3 tool/feature_web_session_gateway_patch.py
+          dart run tool/generate_feature_gateways.dart
+      - name: Verify gateway implementation
+        run: |
+          dart format lib/data/synctv_api/synctv_service.dart tool/generate_feature_gateways.dart
+          dart run tool/generate_feature_gateways.dart --check
+          dart analyze --fatal-infos
+      - name: Commit implementation and remove helper files
+        run: |
+          git rm .github/workflows/feature-web-session-gateway.yml tool/feature_web_session_gateway_patch.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/data/synctv_api/synctv_service.dart \
+            tool/generate_feature_gateways.dart \
+            lib/features/providers/application/provider_gateway.dart \
+            lib/features/providers/data/synctv_provider_gateway.dart
+          git commit -m "Expose WebSession operations through provider gateway"
+          git push origin HEAD:feat/iqiyi-tencent-shared-provider
