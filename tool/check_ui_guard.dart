@@ -12,6 +12,11 @@ final _excludedPathSegments = <String>{
 final _excludedFiles = <String>{
   _normalize('lib/core/presentation/widgets/app_form_controls.dart'),
   _normalize('lib/features/room/presentation/widgets/custom_video_player.dart'),
+  // The embedded provider login is a domain-specific WebView surface that
+  // requires Flutter's raw dialog and clipping primitives around WebViewWidget.
+  _normalize(
+    'lib/features/providers/presentation/provider_web_session_capture_io.dart',
+  ),
 };
 
 final _guardedPatterns = <_GuardedPattern>[
