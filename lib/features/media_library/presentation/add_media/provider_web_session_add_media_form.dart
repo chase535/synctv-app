@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:synctv_app/core/presentation/notifications/app_notifications.dart';
 import 'package:synctv_app/core/presentation/widgets/app_form_controls.dart';
+import 'package:synctv_app/features/media_library/presentation/add_media/playback_proxy_mode_control.dart';
 import 'package:synctv_app/features/media_library/presentation/add_media/provider_workspace.dart';
 import 'package:synctv_app/features/providers/domain/provider_web_session_spec.dart';
-import 'package:synctv_app/features/providers/infrastructure/provider_web_session_capture.dart';
 import 'package:synctv_app/features/providers/presentation/provider_gateway_scope.dart';
+import 'package:synctv_app/features/providers/presentation/provider_web_session_capture.dart';
 import 'package:synctv_app/l10n/l10n.dart';
 import 'package:synctv_app/src/generated/proto/providers/common.pb.dart'
     as provider_common;
@@ -14,6 +15,14 @@ import 'package:synctv_app/src/generated/proto/source_config.pb.dart'
     as source_config;
 import 'package:synctv_app/src/generated/proto/source_config.pbenum.dart'
     as source_enum;
+
+final _webSessionPlaybackProxyPolicy = provider_common.PlaybackProxyPolicy(
+  supportedModes: [
+    source_enum.PlaybackProxyMode.PLAYBACK_PROXY_MODE_AUTO,
+    source_enum.PlaybackProxyMode.PLAYBACK_PROXY_MODE_DIRECT_PREFER,
+    source_enum.PlaybackProxyMode.PLAYBACK_PROXY_MODE_DIRECT_ONLY,
+  ],
+);
 
 class ProviderWebSessionAddMediaForm extends StatefulWidget {
   const ProviderWebSessionAddMediaForm({
@@ -241,89 +250,65 @@ class _ProviderWebSessionAddMediaFormState
                 }),
         ),
         const SizedBox(height: 8),
-        DropdownButtonFormField<source_enum.PlaybackProxyMode>(
-          key: ValueKey('${_spec.label}-proxy-mode'),
-          initialValue: _proxyMode,
-          decoration: InputDecoration(
-            labelText: context.l10n.playbackProxyMode,
-            prefixIcon: const Icon(Icons.route_rounded),
-          ),
-          items: const [
-            DropdownMenuItem(
-              value: source_enum.PlaybackProxyMode.PLAYBACK_PROXY_MODE_AUTO,
-              child: Text('Auto'),
-            ),
-            DropdownMenuItem(
-              value: source_enum
-                  .PlaybackProxyMode
-                  .PLAYBACK_PROXY_MODE_DIRECT_PREFER,
-              child: Text('Prefer direct playback'),
-            ),
-            DropdownMenuItem(
-              value:
-                  source_enum.PlaybackProxyMode.PLAYBACK_PROXY_MODE_DIRECT_ONLY,
-              child: Text('Direct playback only'),
-            ),
-          ],
-          onChanged: _loading
-              ? null
-              : (value) {
-                  if (value == null) return;
-                  setState(() {
-                    _proxyMode = value;
-                    _notifyDraft();
-                  });
-                },
+        PlaybackProxyModeControl(
+          value: _proxyMode,
+          enabled: !_loading,
+          policy: _webSessionPlaybackProxyPolicy,
+          onChanged: (value) {
+            setState(() {
+              _proxyMode = value;
+              _notifyDraft();
+            });
+          },
         ),
         const SizedBox(height: 16),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
-            borderRadius: BorderRadius.circular(8),
+        AppPanelSurface(
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant,
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Icon(
-                  binding == null
-                      ? Icons.no_accounts_outlined
-                      : Icons.verified_user_outlined,
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Icon(
+                binding == null
+                    ? Icons.no_accounts_outlined
+                    : Icons.verified_user_outlined,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      binding == null
+                          ? 'No local ${_spec.label} session connected'
+                          : (binding.label.isEmpty
+                                ? '${_spec.label} session connected'
+                                : binding.label),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    if (binding != null)
+                      Text('${binding.cookieCount} cookies · values hidden'),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        binding == null
-                            ? 'No local ${_spec.label} session connected'
-                            : (binding.label.isEmpty
-                                  ? '${_spec.label} session connected'
-                                  : binding.label),
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      if (binding != null)
-                        Text('${binding.cookieCount} cookies · values hidden'),
-                    ],
-                  ),
+              ),
+              const SizedBox(width: 8),
+              if (binding != null)
+                AppActionButton(
+                  onPressed: _loading ? null : _unbind,
+                  label: 'Disconnect',
+                  style: AppActionButtonStyle.text,
+                  size: AppActionButtonSize.sm,
                 ),
-                const SizedBox(width: 8),
-                if (binding != null)
-                  TextButton(
-                    onPressed: _loading ? null : _unbind,
-                    child: const Text('Disconnect'),
-                  ),
-                FilledButton.icon(
-                  key: ValueKey('${_spec.label}-connect-session'),
-                  onPressed: _loading ? null : _captureAndBind,
-                  icon: const Icon(Icons.login_rounded),
-                  label: Text(binding == null ? 'Connect session' : 'Refresh'),
-                ),
-              ],
-            ),
+              const SizedBox(width: 4),
+              AppActionButton(
+                key: ValueKey('${_spec.label}-connect-session'),
+                onPressed: _loading ? null : _captureAndBind,
+                icon: Icons.login_rounded,
+                label: binding == null ? 'Connect session' : 'Refresh',
+                size: AppActionButtonSize.sm,
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 8),
@@ -337,19 +322,12 @@ class _ProviderWebSessionAddMediaFormState
         const SizedBox(height: 16),
         Align(
           alignment: Alignment.centerRight,
-          child: FilledButton.icon(
+          child: AppActionButton(
             key: ValueKey('${_spec.label}-add-media'),
             onPressed: _loading || _validatedUri == null ? null : _addMedia,
-            icon: _loading
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: AppLoadingIndicator(
-                      size: AppLoadingSize.sm,
-                      centered: false,
-                    ),
-                  )
-                : const Icon(Icons.add_rounded),
-            label: Text(context.l10n.addMedia),
+            icon: Icons.add_rounded,
+            label: context.l10n.addMedia,
+            loading: _loading,
           ),
         ),
       ],
