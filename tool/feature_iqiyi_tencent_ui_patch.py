@@ -85,17 +85,61 @@ replace_once(
 )
 
 replace_once(
-    """      18 => 'youtube',
+    """  String? _providerTypeForSourceIndex(int index) {
+    return switch (index) {
+      0 => 'directUrl',
+      1 => 'rtmp',
+      2 => 'liveProxy',
+      3 => 'bilibili',
+      4 => 'alist',
+      5 => 'emby',
+      6 => 'cloudreve',
+      7 => 'twitch',
+      8 => 'huya',
+      9 => 'douyu',
+      10 => 'acfun',
+      11 => 'cctv',
+      12 => 'fnos',
+      13 => 'qnap',
+      14 => 'synology',
+      15 => 'nextcloud',
+      16 => 'seafile',
+      17 => 'truenas',
+      18 => 'youtube',
       19 => 'douyin',
       20 => 'tiktok',
       _ => null,
+    };
+  }
 """,
-    """      18 => 'youtube',
+    """  String? _providerTypeForSourceIndex(int index) {
+    return switch (index) {
+      0 => 'directUrl',
+      1 => 'rtmp',
+      2 => 'liveProxy',
+      3 => 'bilibili',
+      4 => 'alist',
+      5 => 'emby',
+      6 => 'cloudreve',
+      7 => 'twitch',
+      8 => 'huya',
+      9 => 'douyu',
+      10 => 'acfun',
+      11 => 'cctv',
+      12 => 'fnos',
+      13 => 'qnap',
+      14 => 'synology',
+      15 => 'nextcloud',
+      16 => 'seafile',
+      17 => 'truenas',
+      18 => 'youtube',
       19 => 'douyin',
       20 => 'tiktok',
       21 => 'iqiyi',
       22 => 'tencentVideo',
       _ => null,
+    };
+  }
 """,
     "provider type switch",
 )
