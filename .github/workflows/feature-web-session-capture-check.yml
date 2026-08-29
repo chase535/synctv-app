@@ -1,0 +1,55 @@
+name: Feature WebSession capture check
+
+on:
+  push:
+    branches:
+      - feat/iqiyi-tencent-shared-provider
+    paths:
+      - .github/workflows/feature-web-session-capture-check.yml
+      - lib/features/providers/infrastructure/provider_web_session_capture_io.dart
+      - lib/features/providers/infrastructure/provider_web_session_capture_web.dart
+
+permissions:
+  contents: write
+
+jobs:
+  format-analyze:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      FLUTTER_VERSION: "3.44.8"
+      RUST_VERSION: "1.97.1"
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: feat/iqiyi-tencent-shared-provider
+
+      - name: Set up build toolchain
+        uses: ./.github/actions/setup-build
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          rust-version: ${{ env.RUST_VERSION }}
+
+      - name: Format capture implementation
+        run: |
+          dart format \
+            lib/features/providers/infrastructure/provider_web_session_capture_io.dart \
+            lib/features/providers/infrastructure/provider_web_session_capture_web.dart
+
+      - name: Analyze capture implementation
+        run: dart analyze --fatal-infos
+
+      - name: Commit formatted implementation and remove helper workflow
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/feature-web-session-capture-check.yml
+          git add \
+            lib/features/providers/infrastructure/provider_web_session_capture_io.dart \
+            lib/features/providers/infrastructure/provider_web_session_capture_web.dart
+          git diff --cached --exit-code && exit 0 || true
+          git commit -m "Format and validate provider WebSession capture"
+          git push origin HEAD:feat/iqiyi-tencent-shared-provider
