@@ -15,6 +15,8 @@ class ProviderDistributionPolicy {
     'douyin',
     'douyu',
     'huya',
+    'iqiyi',
+    'tencentvideo',
     'tiktok',
     'twitch',
     'youtube',
