@@ -148,6 +148,18 @@ MediaProviderBrand mediaProviderBrand(String providerType) {
       icon: FontAwesomeIcons.tiktok.data,
       color: Color(0xFFFE2C55),
     ),
+    'iqiyi' => const MediaProviderBrand(
+      type: 'iqiyi',
+      label: 'iQiyi',
+      icon: Icons.ondemand_video_rounded,
+      color: Color(0xFF00BE06),
+    ),
+    'tencentvideo' => const MediaProviderBrand(
+      type: 'tencentVideo',
+      label: 'Tencent Video',
+      icon: Icons.play_circle_outline_rounded,
+      color: Color(0xFF00A4FF),
+    ),
     _ => MediaProviderBrand(
       type: type,
       label: type.isEmpty ? 'Provider' : type,
