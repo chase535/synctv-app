@@ -8,7 +8,11 @@ if (-not (Test-Path -LiteralPath $packageConfigPath -PathType Leaf)) {
 
 $packageConfig = Get-Content -LiteralPath $packageConfigPath -Raw | ConvertFrom-Json
 $packageConfigDirectory = Split-Path -Parent (Resolve-Path -LiteralPath $packageConfigPath).Path
-$packageConfigBaseUri = [Uri]::new(($packageConfigDirectory.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar))
+$packageConfigDirectory = $packageConfigDirectory.TrimEnd(
+  [IO.Path]::DirectorySeparatorChar,
+  [IO.Path]::AltDirectorySeparatorChar
+)
+$packageConfigBaseUri = [Uri]::new($packageConfigDirectory + [IO.Path]::DirectorySeparatorChar)
 
 function Get-PackageRoot {
   param(
