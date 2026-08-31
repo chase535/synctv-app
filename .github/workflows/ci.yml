@@ -18,8 +18,6 @@ permissions:
   contents: read
 
 concurrency:
-  # Keep this group distinct from callers of the reusable workflow. GitHub
-  # treats concurrency group names as case-insensitive.
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
@@ -61,6 +59,7 @@ jobs:
         run: |
           test "$(protoc --version)" = "libprotoc $PROTOC_VERSION"
           dart pub global activate protoc_plugin 25.0.0
+
       - name: Check Dart formatting
         run: dart format --output=none --set-exit-if-changed lib test tool packages
 
@@ -68,6 +67,7 @@ jobs:
         run: |
           find tool -type f -name '*.sh' -print0 | xargs -0 bash -n
           find tool -type f -name '*.sh' -print0 | xargs -0 shellcheck
+
       - name: Check GitHub Actions workflows
         uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
         with:
@@ -91,12 +91,11 @@ jobs:
           flutter gen-l10n
           bash tool/generate_proto.sh
           git diff --exit-code -- lib/l10n lib/src/generated
+
   android-native:
-    name: Signed Android release APK
+    name: Android ${{ matrix.architecture }} signed release APK
     if: >-
       inputs.native-build-mode != 'skip' &&
-      (github.event_name != 'push' ||
-      github.ref_name == github.event.repository.default_branch) &&
       (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-24.04
@@ -107,6 +106,22 @@ jobs:
       SYNCTV_ANDROID_KEY_ALIAS: ${{ secrets.SYNCTV_ANDROID_KEY_ALIAS }}
       SYNCTV_ANDROID_KEY_PASSWORD: ${{ secrets.SYNCTV_ANDROID_KEY_PASSWORD }}
       SYNCTV_BUILT_IN_SERVER_URL: ${{ secrets.SYNCTV_BUILT_IN_SERVER_URL }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: arm32
+            flutter-target: android-arm
+            rust-target: armv7-linux-androideabi
+            android-abi: armeabi-v7a
+          - architecture: arm64
+            flutter-target: android-arm64
+            rust-target: aarch64-linux-android
+            android-abi: arm64-v8a
+          - architecture: x64
+            flutter-target: android-x64
+            rust-target: x86_64-linux-android
+            android-abi: x86_64
 
     steps:
       - name: Check out source
@@ -127,7 +142,7 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           flutter-architecture: x64
           rust-version: ${{ env.RUST_VERSION }}
-          rust-targets: armv7-linux-androideabi,aarch64-linux-android,x86_64-linux-android
+          rust-targets: ${{ matrix.rust-target }}
 
       - name: Prepare Android release signing
         shell: bash
@@ -147,34 +162,43 @@ jobs:
             -storepass "$SYNCTV_ANDROID_KEYSTORE_PASSWORD" \
             -alias "$SYNCTV_ANDROID_KEY_ALIAS" >/dev/null
           echo "SYNCTV_ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+
       - name: Configure Android release plugins
         # Work around flutter/flutter#169336 for --no-pub release builds.
         run: flutter build apk --config-only
 
-      - name: Build signed universal Android release APK
+      - name: Build signed Android release APK
         shell: bash
         run: |
           flutter build apk \
             --release \
             --no-pub \
-            --target-platform android-arm,android-arm64,android-x64 \
+            --target-platform "${{ matrix.flutter-target }}" \
             --dart-define="SYNCTV_BUILT_IN_SERVER_URL=$SYNCTV_BUILT_IN_SERVER_URL" \
-            --split-debug-info build/symbols/ci-android
-      - name: Verify Android release APK
+            --split-debug-info "build/symbols/android-${{ matrix.architecture }}"
+
+      - name: Verify Android release APK architecture and signature
         shell: bash
         run: |
           set -euo pipefail
           apk="build/app/outputs/flutter-apk/app-release.apk"
           bash tool/ci/verify_android_artifact.sh "$apk"
-          for abi in armeabi-v7a arm64-v8a x86_64; do
-            if ! unzip -Z1 "$apk" | grep -Fx "lib/$abi/libapp.so" >/dev/null; then
-              echo "Missing Flutter runtime for Android ABI: $abi" >&2
-              exit 1
-            fi
-          done
+          mapfile -t flutter_libs < <(
+            unzip -Z1 "$apk" | grep -E '^lib/[^/]+/libapp\.so$' | sort
+          )
+          if [[ "${#flutter_libs[@]}" -ne 1 ]]; then
+            printf 'Expected exactly one Flutter runtime, found: %s\n' "${flutter_libs[*]:-none}" >&2
+            exit 1
+          fi
+          expected="lib/${{ matrix.android-abi }}/libapp.so"
+          if [[ "${flutter_libs[0]}" != "$expected" ]]; then
+            echo "Android ABI mismatch: found ${flutter_libs[0]}, expected $expected" >&2
+            exit 1
+          fi
           apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -n 1)"
           test -n "$apksigner"
           "$apksigner" verify --verbose "$apk"
+
       - name: Package Android release APK
         shell: bash
         run: |
@@ -185,21 +209,23 @@ jobs:
           install -d dist
           install -m 0644 \
             build/app/outputs/flutter-apk/app-release.apk \
-            "dist/SyncTV-$artifact_version-android-universal-signed.apk"
+            "dist/SyncTV-$artifact_version-android-${{ matrix.architecture }}-signed.apk"
+          tar -C "build/symbols/android-${{ matrix.architecture }}" -czf \
+            "dist/SyncTV-$artifact_version-android-${{ matrix.architecture }}-symbols.tar.gz" .
+
       - name: Upload Android release APK
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: release-android
+          name: release-android-${{ matrix.architecture }}
           path: dist/*
           if-no-files-found: error
+          retention-days: 14
           compression-level: 0
 
   linux-native:
     name: Linux ${{ matrix.architecture }} native release
     if: >-
       inputs.native-build-mode != 'skip' &&
-      (github.event_name != 'push' ||
-      github.ref_name == github.event.repository.default_branch) &&
       (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ${{ matrix.runner }}
@@ -257,26 +283,38 @@ jobs:
             "${{ matrix.architecture }}" "$artifact_version" dist
           test -f "dist/SyncTV-$artifact_version-linux-${{ matrix.architecture }}.deb"
           test -f "dist/SyncTV-$artifact_version-linux-${{ matrix.architecture }}.tar.gz"
+
       - name: Upload Linux release artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-linux-${{ matrix.architecture }}
           path: dist/*
           if-no-files-found: error
+          retention-days: 14
           compression-level: 0
 
   windows-native:
-    name: Windows x64 native release
+    name: Windows ${{ matrix.architecture }} native release
     if: >-
       inputs.native-build-mode != 'skip' &&
-      (github.event_name != 'push' ||
-      github.ref_name == github.event.repository.default_branch) &&
       (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository)
-    runs-on: windows-latest
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     env:
       SYNCTV_BUILT_IN_SERVER_URL: ${{ secrets.SYNCTV_BUILT_IN_SERVER_URL }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x64
+            runner: windows-latest
+            flutter-architecture: x64
+            rust-target: x86_64-pc-windows-msvc
+          - architecture: arm64
+            runner: windows-11-arm
+            flutter-architecture: arm64
+            rust-target: aarch64-pc-windows-msvc
 
     steps:
       - name: Enable long paths
@@ -292,9 +330,20 @@ jobs:
         uses: ./.github/actions/setup-build
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
-          flutter-architecture: x64
+          flutter-architecture: ${{ matrix.flutter-architecture }}
           rust-version: ${{ env.RUST_VERSION }}
-          rust-targets: x86_64-pc-windows-msvc
+          rust-targets: ${{ matrix.rust-target }}
+
+      - name: Ensure Inno Setup is available
+        shell: pwsh
+        run: |
+          $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path -Path $compiler -PathType Leaf)) {
+            choco install innosetup --yes --no-progress
+          }
+          if (-not (Test-Path -Path $compiler -PathType Leaf)) {
+            throw "Inno Setup compiler was not found after installation: $compiler"
+          }
 
       - name: Build and package Windows release
         shell: pwsh
@@ -313,17 +362,23 @@ jobs:
             --release `
             --no-pub `
             --dart-define "SYNCTV_BUILT_IN_SERVER_URL=$env:SYNCTV_BUILT_IN_SERVER_URL" `
-            --split-debug-info build/symbols/windows-x64
-          ./tool/ci/verify_windows_architecture.ps1 -Architecture x64
+            --split-debug-info "build/symbols/windows-${{ matrix.architecture }}"
+          ./tool/ci/verify_windows_architecture.ps1 `
+            -Architecture "${{ matrix.architecture }}"
           ./tool/ci/package_release.ps1 `
             -Version $artifactVersion `
-            -Architecture x64 `
+            -Architecture "${{ matrix.architecture }}" `
             -OutputDirectory dist `
             -RepositoryUrl "${{ github.server_url }}/${{ github.repository }}"
+          if (-not (Test-Path "dist/SyncTV-$artifactVersion-windows-${{ matrix.architecture }}-setup.exe")) {
+            throw 'Windows installer was not generated'
+          }
+
       - name: Upload Windows release artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: release-windows-x64
+          name: release-windows-${{ matrix.architecture }}
           path: dist/*
           if-no-files-found: error
+          retention-days: 14
           compression-level: 0
