@@ -80,8 +80,7 @@ bool providerWebSessionDomainAllowedForSpec(
   ProviderWebSessionSpec spec,
 ) {
   return spec.allowedDomains.any(
-    (allowedDomain) =>
-        providerWebSessionDomainAllowed(domain, allowedDomain),
+    (allowedDomain) => providerWebSessionDomainAllowed(domain, allowedDomain),
   );
 }
 
