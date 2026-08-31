@@ -5,13 +5,21 @@ import 'package:synctv_app/src/generated/proto/source_config.pbenum.dart'
 
 void main() {
   group('providerWebSessionSpec', () {
-    test('uses official iQiyi scope and desktop site on mobile', () {
+    test('uses official iQiyi scopes and desktop site on mobile', () {
       final spec = providerWebSessionSpec(
         source_enum.SourceProvider.SOURCE_PROVIDER_IQIYI,
       );
 
       expect(spec.startUri, Uri.parse('https://www.iqiyi.com/'));
       expect(spec.allowedDomain, 'iqiyi.com');
+      expect(spec.allowedDomains, <String>['iqiyi.com', 'qiyi.com']);
+      expect(
+        spec.effectiveCookieLookupUris,
+        <Uri>[
+          Uri.parse('https://www.iqiyi.com/'),
+          Uri.parse('https://www.qiyi.com/'),
+        ],
+      );
       expect(spec.requestDesktopSiteOnMobile, isTrue);
       expect(
         providerWebSessionUrlAllowed(
@@ -21,11 +29,34 @@ void main() {
         isTrue,
       );
       expect(
-        providerWebSessionDomainAllowed(
-          '.passport.iqiyi.com',
-          spec.allowedDomain,
+        providerWebSessionUrlAllowed(
+          Uri.parse('https://www.qiyi.com/v_123.html'),
+          spec,
         ),
         isTrue,
+      );
+      expect(
+        providerWebSessionDomainAllowedForSpec('.passport.iqiyi.com', spec),
+        isTrue,
+      );
+      expect(
+        providerWebSessionDomainAllowedForSpec('.passport.qiyi.com', spec),
+        isTrue,
+      );
+    });
+
+    test('normalizes URL-shaped Android cookie domains', () {
+      expect(
+        normalizeProviderCookieDomain('https://www.iqiyi.com/'),
+        'www.iqiyi.com',
+      );
+      expect(
+        normalizeProviderCookieDomain('HTTPS://V.QQ.COM/path'),
+        'v.qq.com',
+      );
+      expect(
+        normalizeProviderCookieDomain('.passport.iqiyi.com'),
+        'passport.iqiyi.com',
       );
     });
 
@@ -36,6 +67,11 @@ void main() {
 
       expect(spec.startUri, Uri.parse('https://v.qq.com/'));
       expect(spec.allowedDomain, 'qq.com');
+      expect(spec.allowedDomains, <String>['qq.com']);
+      expect(
+        spec.effectiveCookieLookupUris,
+        <Uri>[Uri.parse('https://v.qq.com/')],
+      );
       expect(spec.requestDesktopSiteOnMobile, isFalse);
       expect(
         providerWebSessionUrlAllowed(
@@ -45,7 +81,7 @@ void main() {
         isTrue,
       );
       expect(
-        providerWebSessionDomainAllowed('.video.qq.com', spec.allowedDomain),
+        providerWebSessionDomainAllowedForSpec('.video.qq.com', spec),
         isTrue,
       );
     });
@@ -71,13 +107,20 @@ void main() {
       );
       expect(
         providerWebSessionUrlAllowed(
+          Uri.parse('https://qiyi.com.evil.example/video'),
+          iqiyi,
+        ),
+        isFalse,
+      );
+      expect(
+        providerWebSessionUrlAllowed(
           Uri.parse('https://qq.com.evil.example/video'),
           tencent,
         ),
         isFalse,
       );
       expect(
-        providerWebSessionDomainAllowed('notqq.com', tencent.allowedDomain),
+        providerWebSessionDomainAllowedForSpec('notqq.com', tencent),
         isFalse,
       );
     });
