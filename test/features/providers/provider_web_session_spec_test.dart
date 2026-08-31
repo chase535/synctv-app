@@ -13,13 +13,10 @@ void main() {
       expect(spec.startUri, Uri.parse('https://www.iqiyi.com/'));
       expect(spec.allowedDomain, 'iqiyi.com');
       expect(spec.allowedDomains, <String>['iqiyi.com', 'qiyi.com']);
-      expect(
-        spec.effectiveCookieLookupUris,
-        <Uri>[
-          Uri.parse('https://www.iqiyi.com/'),
-          Uri.parse('https://www.qiyi.com/'),
-        ],
-      );
+      expect(spec.effectiveCookieLookupUris, <Uri>[
+        Uri.parse('https://www.iqiyi.com/'),
+        Uri.parse('https://www.qiyi.com/'),
+      ]);
       expect(spec.requestDesktopSiteOnMobile, isTrue);
       expect(
         providerWebSessionUrlAllowed(
@@ -68,10 +65,9 @@ void main() {
       expect(spec.startUri, Uri.parse('https://v.qq.com/'));
       expect(spec.allowedDomain, 'qq.com');
       expect(spec.allowedDomains, <String>['qq.com']);
-      expect(
-        spec.effectiveCookieLookupUris,
-        <Uri>[Uri.parse('https://v.qq.com/')],
-      );
+      expect(spec.effectiveCookieLookupUris, <Uri>[
+        Uri.parse('https://v.qq.com/'),
+      ]);
       expect(spec.requestDesktopSiteOnMobile, isFalse);
       expect(
         providerWebSessionUrlAllowed(
