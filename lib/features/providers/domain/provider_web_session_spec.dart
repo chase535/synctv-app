@@ -44,6 +44,10 @@ ProviderWebSessionSpec providerWebSessionSpec(
       Uri.parse('https://www.iqiyi.com/'),
       Uri.parse('https://www.qiyi.com/'),
     ],
+    // The embedded window is an authentication surface only. Keep the native
+    // Android/iOS WebView user agent instead of pretending the phone is a
+    // desktop browser; playback discovery happens on the server.
+    requestDesktopSiteOnMobile: false,
   ),
   source_enum.SourceProvider.SOURCE_PROVIDER_TENCENT_VIDEO =>
     ProviderWebSessionSpec(
