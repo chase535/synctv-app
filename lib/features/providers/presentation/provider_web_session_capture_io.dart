@@ -120,12 +120,13 @@ Future<List<provider_common_service.WebSessionCookie>> _captureDesktop(
       }
 
       assert(() {
-        final domains = cookies
-            .map((cookie) => normalizeProviderCookieDomain(cookie.domain))
-            .where((domain) => domain.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
+        final domains =
+            cookies
+                .map((cookie) => normalizeProviderCookieDomain(cookie.domain))
+                .where((domain) => domain.isNotEmpty)
+                .toSet()
+                .toList()
+              ..sort();
         final names = matched.map((cookie) => cookie.name).toSet().toList()
           ..sort();
         debugPrint(
