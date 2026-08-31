@@ -47,7 +47,9 @@ function Install-PinnedCMakePatch {
     [Uri]$SourceUrl,
 
     [Parameter(Mandatory = $true)]
-    [string[]]$RequiredMarkers
+    [string[]]$RequiredMarkers,
+
+    [hashtable]$Replacements = @{}
   )
 
   $packageRoot = Get-PackageRoot -Name $PackageName
@@ -64,12 +66,22 @@ function Install-PinnedCMakePatch {
   }
 
   $patchText = Get-Content -LiteralPath $temporary -Raw
+  foreach ($entry in $Replacements.GetEnumerator()) {
+    $from = [string]$entry.Key
+    $to = [string]$entry.Value
+    if (-not $patchText.Contains($from)) {
+      throw "Pinned CMake patch for '$PackageName' is missing replacement source: $from"
+    }
+    $patchText = $patchText.Replace($from, $to)
+  }
+
   foreach ($marker in $RequiredMarkers) {
     if (-not $patchText.Contains($marker)) {
       throw "Pinned CMake patch for '$PackageName' is missing required marker: $marker"
     }
   }
 
+  [IO.File]::WriteAllText($temporary, $patchText, [Text.UTF8Encoding]::new($false))
   Copy-Item -LiteralPath $temporary -Destination $destination -Force
   Write-Host "Patched $PackageName at $destination"
   Write-Host "Source: $SourceUrl"
@@ -87,13 +99,24 @@ Install-PinnedCMakePatch `
     'set(WEBVIEW2_VERSION "1.0.992.28")'
   )
 
-# media_kit_libs_windows_video 1.0.11 ships x64 ANGLE libraries. This pinned
-# upstream ARM64-support commit selects aarch64 libmpv and ARM64 ANGLE assets.
+# media_kit_libs_windows_video 1.0.11 ships x64 ANGLE libraries. Start from the
+# pinned ARM64-support commit for its ARM64 ANGLE selection, but use the existing
+# official media-kit 20241021 libmpv release instead of the deleted shinchiro
+# 20260221 release referenced by that draft commit.
 Install-PinnedCMakePatch `
   -PackageName 'media_kit_libs_windows_video' `
   -SourceUrl 'https://raw.githubusercontent.com/talynone/media-kit/3469f4a1e24262db76a8b4cca07116074e3f6eef/libs/windows/media_kit_libs_windows_video/windows/CMakeLists.txt' `
+  -Replacements @{
+    'set(LIBMPV "mpv-dev-x86_64-20260221-git-534b2d2.7z")' = 'set(LIBMPV "mpv-dev-x86_64-20241021-git-0f78584.7z")'
+    'set(LIBMPV_MD5 "42940fdd4ef96d9986b503d315f2290a")' = 'set(LIBMPV_MD5 "6ecf18e85b093c3f7edb16f3ee6603f3")'
+    'set(LIBMPV "mpv-dev-aarch64-20260221-git-534b2d2.7z")' = 'set(LIBMPV "mpv-dev-aarch64-20241021-git-0f78584.7z")'
+    'set(LIBMPV_MD5 "047eab18da3fda6228dfca6c303cc05a")' = 'set(LIBMPV_MD5 "5b507a35db13eee6cb7eb21e8be7c83d")'
+    'set(LIBMPV_URL "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20260221/${LIBMPV}")' = 'set(LIBMPV_URL "https://github.com/media-kit/libmpv-win32-video-cmake/releases/download/20241021/${LIBMPV}")'
+  } `
   -RequiredMarkers @(
     'set(LIBMPV_ARCH "aarch64")',
-    'mpv-dev-aarch64-20260221-git-534b2d2.7z',
+    'mpv-dev-aarch64-20241021-git-0f78584.7z',
+    'set(LIBMPV_MD5 "5b507a35db13eee6cb7eb21e8be7c83d")',
+    'media-kit/libmpv-win32-video-cmake/releases/download/20241021',
     'ANGLE_WINARM64.7z'
   )
