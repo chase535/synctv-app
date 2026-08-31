@@ -5,19 +5,28 @@ import 'package:synctv_app/src/generated/proto/source_config.pbenum.dart'
 
 void main() {
   group('providerWebSessionSpec', () {
-    test('uses official iQiyi scopes without forcing desktop site', () {
+    test('uses official iQiyi desktop and mobile login endpoints', () {
       final spec = providerWebSessionSpec(
         source_enum.SourceProvider.SOURCE_PROVIDER_IQIYI,
       );
 
       expect(spec.startUri, Uri.parse('https://www.iqiyi.com/'));
+      expect(spec.mobileStartUri, Uri.parse('https://m.iqiyi.com/'));
+      expect(spec.effectiveMobileStartUri, Uri.parse('https://m.iqiyi.com/'));
       expect(spec.allowedDomain, 'iqiyi.com');
       expect(spec.allowedDomains, <String>['iqiyi.com', 'qiyi.com']);
       expect(spec.effectiveCookieLookupUris, <Uri>[
+        Uri.parse('https://m.iqiyi.com/'),
         Uri.parse('https://www.iqiyi.com/'),
         Uri.parse('https://www.qiyi.com/'),
       ]);
-      expect(spec.requestDesktopSiteOnMobile, isFalse);
+      expect(
+        providerWebSessionUrlAllowed(
+          Uri.parse('https://m.iqiyi.com/v_123.html'),
+          spec,
+        ),
+        isTrue,
+      );
       expect(
         providerWebSessionUrlAllowed(
           Uri.parse('https://www.iqiyi.com/v_123.html'),
@@ -57,18 +66,19 @@ void main() {
       );
     });
 
-    test('uses official Tencent Video scope without forcing desktop site', () {
+    test('Tencent Video reuses its normal endpoint on mobile', () {
       final spec = providerWebSessionSpec(
         source_enum.SourceProvider.SOURCE_PROVIDER_TENCENT_VIDEO,
       );
 
       expect(spec.startUri, Uri.parse('https://v.qq.com/'));
+      expect(spec.mobileStartUri, isNull);
+      expect(spec.effectiveMobileStartUri, Uri.parse('https://v.qq.com/'));
       expect(spec.allowedDomain, 'qq.com');
       expect(spec.allowedDomains, <String>['qq.com']);
       expect(spec.effectiveCookieLookupUris, <Uri>[
         Uri.parse('https://v.qq.com/'),
       ]);
-      expect(spec.requestDesktopSiteOnMobile, isFalse);
       expect(
         providerWebSessionUrlAllowed(
           Uri.parse('https://v.qq.com/x/cover/example.html'),
