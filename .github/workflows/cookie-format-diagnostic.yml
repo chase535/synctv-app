@@ -1,0 +1,42 @@
+name: Provider Cookie Format Diagnostic
+
+on:
+  push:
+    branches:
+      - feat/iqiyi-tencent-shared-provider
+
+permissions:
+  contents: read
+
+jobs:
+  format-diff:
+    if: contains(github.event.head_commit.message, '[cookie-format-diagnostic]')
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up build toolchain
+        uses: ./.github/actions/setup-build
+        with:
+          flutter-version: "3.44.8"
+          rust-version: "1.97.1"
+
+      - name: Show provider formatter diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          dart format \
+            lib/features/providers/domain/provider_web_session_spec.dart \
+            lib/features/providers/presentation/provider_web_session_capture_io.dart \
+            test/features/providers/provider_web_session_spec_test.dart
+          git --no-pager diff -- \
+            lib/features/providers/domain/provider_web_session_spec.dart \
+            lib/features/providers/presentation/provider_web_session_capture_io.dart \
+            test/features/providers/provider_web_session_spec_test.dart
+          test -z "$(git status --short -- \
+            lib/features/providers/domain/provider_web_session_spec.dart \
+            lib/features/providers/presentation/provider_web_session_capture_io.dart \
+            test/features/providers/provider_web_session_spec_test.dart)"
