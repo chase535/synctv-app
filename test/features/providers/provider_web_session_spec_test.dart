@@ -5,7 +5,7 @@ import 'package:synctv_app/src/generated/proto/source_config.pbenum.dart'
 
 void main() {
   group('providerWebSessionSpec', () {
-    test('uses official iQiyi scopes and desktop site on mobile', () {
+    test('uses official iQiyi scopes without forcing desktop site', () {
       final spec = providerWebSessionSpec(
         source_enum.SourceProvider.SOURCE_PROVIDER_IQIYI,
       );
@@ -17,7 +17,7 @@ void main() {
         Uri.parse('https://www.iqiyi.com/'),
         Uri.parse('https://www.qiyi.com/'),
       ]);
-      expect(spec.requestDesktopSiteOnMobile, isTrue);
+      expect(spec.requestDesktopSiteOnMobile, isFalse);
       expect(
         providerWebSessionUrlAllowed(
           Uri.parse('https://www.iqiyi.com/v_123.html'),
