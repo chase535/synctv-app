@@ -44,7 +44,6 @@ ProviderWebSessionSpec providerWebSessionSpec(
       Uri.parse('https://www.iqiyi.com/'),
       Uri.parse('https://www.qiyi.com/'),
     ],
-    requestDesktopSiteOnMobile: true,
   ),
   source_enum.SourceProvider.SOURCE_PROVIDER_TENCENT_VIDEO =>
     ProviderWebSessionSpec(
