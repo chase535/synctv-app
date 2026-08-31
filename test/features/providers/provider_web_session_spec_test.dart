@@ -5,13 +5,14 @@ import 'package:synctv_app/src/generated/proto/source_config.pbenum.dart'
 
 void main() {
   group('providerWebSessionSpec', () {
-    test('uses official iQiyi scope', () {
+    test('uses official iQiyi scope and desktop site on mobile', () {
       final spec = providerWebSessionSpec(
         source_enum.SourceProvider.SOURCE_PROVIDER_IQIYI,
       );
 
       expect(spec.startUri, Uri.parse('https://www.iqiyi.com/'));
       expect(spec.allowedDomain, 'iqiyi.com');
+      expect(spec.requestDesktopSiteOnMobile, isTrue);
       expect(
         providerWebSessionUrlAllowed(
           Uri.parse('https://www.iqiyi.com/v_123.html'),
@@ -28,13 +29,14 @@ void main() {
       );
     });
 
-    test('uses official Tencent Video scope', () {
+    test('uses official Tencent Video scope without forcing desktop site', () {
       final spec = providerWebSessionSpec(
         source_enum.SourceProvider.SOURCE_PROVIDER_TENCENT_VIDEO,
       );
 
       expect(spec.startUri, Uri.parse('https://v.qq.com/'));
       expect(spec.allowedDomain, 'qq.com');
+      expect(spec.requestDesktopSiteOnMobile, isFalse);
       expect(
         providerWebSessionUrlAllowed(
           Uri.parse('https://v.qq.com/x/cover/example.html'),
