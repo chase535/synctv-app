@@ -9,12 +9,14 @@ class ProviderWebSessionSpec {
     required this.label,
     required this.startUri,
     required this.allowedDomain,
+    this.requestDesktopSiteOnMobile = false,
   });
 
   final source_enum.SourceProvider provider;
   final String label;
   final Uri startUri;
   final String allowedDomain;
+  final bool requestDesktopSiteOnMobile;
 }
 
 ProviderWebSessionSpec providerWebSessionSpec(
@@ -25,6 +27,7 @@ ProviderWebSessionSpec providerWebSessionSpec(
     label: 'iQiyi',
     startUri: Uri.parse('https://www.iqiyi.com/'),
     allowedDomain: 'iqiyi.com',
+    requestDesktopSiteOnMobile: true,
   ),
   source_enum.SourceProvider.SOURCE_PROVIDER_TENCENT_VIDEO =>
     ProviderWebSessionSpec(
