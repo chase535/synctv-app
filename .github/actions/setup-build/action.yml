@@ -32,58 +32,51 @@ runs:
       with:
         xcode-version: latest-stable
 
-    - name: Set up Flutter
-      # subosito/flutter-action does not currently resolve native Flutter SDKs
-      # for the GitHub-hosted Linux/Windows arm64 runners. Bootstrap those
-      # hosts directly from the pinned Flutter source tag instead.
-      if: inputs.flutter-architecture != 'arm64' || (runner.os != 'Linux' && runner.os != 'Windows')
-      uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
-      with:
-        channel: stable
-        flutter-version: ${{ inputs.flutter-version }}
-        architecture: ${{ inputs.flutter-architecture }}
-        cache: true
-
-    - name: Cache Flutter source SDK
-      if: (runner.os == 'Linux' || runner.os == 'Windows') && inputs.flutter-architecture == 'arm64'
+    - name: Cache pinned Flutter source SDK
       uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
       with:
-        path: ${{ runner.tool_cache }}/flutter-${{ inputs.flutter-version }}-arm64
-        key: flutter-source-${{ runner.os }}-arm64-${{ inputs.flutter-revision }}
+        path: ${{ runner.tool_cache }}/flutter-${{ inputs.flutter-version }}-${{ runner.os }}-${{ inputs.flutter-architecture }}
+        key: flutter-source-${{ runner.os }}-${{ inputs.flutter-architecture }}-${{ inputs.flutter-revision }}
 
-    - name: Set up Flutter from source on Linux arm64
-      if: runner.os == 'Linux' && inputs.flutter-architecture == 'arm64'
+    - name: Set up pinned Flutter source SDK on Unix
+      if: runner.os != 'Windows'
       shell: bash
       env:
-        FLUTTER_ROOT: ${{ runner.tool_cache }}/flutter-${{ inputs.flutter-version }}-arm64
+        FLUTTER_ROOT: ${{ runner.tool_cache }}/flutter-${{ inputs.flutter-version }}-${{ runner.os }}-${{ inputs.flutter-architecture }}
         FLUTTER_REVISION: ${{ inputs.flutter-revision }}
         FLUTTER_VERSION: ${{ inputs.flutter-version }}
       run: |
+        set -euo pipefail
+
         mkdir -p "$FLUTTER_ROOT"
         if ! git -C "$FLUTTER_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
           git init "$FLUTTER_ROOT"
         fi
+
         if git -C "$FLUTTER_ROOT" remote get-url origin >/dev/null 2>&1; then
           git -C "$FLUTTER_ROOT" remote set-url origin https://github.com/flutter/flutter.git
         else
           git -C "$FLUTTER_ROOT" remote add origin https://github.com/flutter/flutter.git
         fi
+
         git -C "$FLUTTER_ROOT" fetch --depth 1 origin \
-          "refs/tags/$FLUTTER_VERSION:refs/tags/$FLUTTER_VERSION"
+          "+refs/tags/$FLUTTER_VERSION:refs/tags/$FLUTTER_VERSION"
+
         resolved_revision="$(git -C "$FLUTTER_ROOT" rev-parse "refs/tags/$FLUTTER_VERSION^{commit}")"
         if [[ "$resolved_revision" != "$FLUTTER_REVISION" ]]; then
           echo "Flutter $FLUTTER_VERSION resolved to $resolved_revision; expected $FLUTTER_REVISION" >&2
           exit 1
         fi
-        git -C "$FLUTTER_ROOT" checkout --detach "refs/tags/$FLUTTER_VERSION"
+
+        git -C "$FLUTTER_ROOT" checkout --force --detach "refs/tags/$FLUTTER_VERSION"
         echo "$FLUTTER_ROOT/bin" >> "$GITHUB_PATH"
         "$FLUTTER_ROOT/bin/flutter" --version
 
-    - name: Set up Flutter from source on Windows arm64
-      if: runner.os == 'Windows' && inputs.flutter-architecture == 'arm64'
+    - name: Set up pinned Flutter source SDK on Windows
+      if: runner.os == 'Windows'
       shell: pwsh
       env:
-        FLUTTER_ROOT: ${{ runner.tool_cache }}/flutter-${{ inputs.flutter-version }}-arm64
+        FLUTTER_ROOT: ${{ runner.tool_cache }}/flutter-${{ inputs.flutter-version }}-${{ runner.os }}-${{ inputs.flutter-architecture }}
         FLUTTER_REVISION: ${{ inputs.flutter-revision }}
         FLUTTER_VERSION: ${{ inputs.flutter-version }}
       run: |
@@ -104,7 +97,7 @@ runs:
         }
         if ($LASTEXITCODE -ne 0) { throw 'Failed to configure the Flutter source remote.' }
 
-        & git -C $env:FLUTTER_ROOT fetch --depth 1 origin "refs/tags/$($env:FLUTTER_VERSION):refs/tags/$($env:FLUTTER_VERSION)"
+        & git -C $env:FLUTTER_ROOT fetch --depth 1 origin "+refs/tags/$($env:FLUTTER_VERSION):refs/tags/$($env:FLUTTER_VERSION)"
         if ($LASTEXITCODE -ne 0) { throw "Failed to fetch Flutter $($env:FLUTTER_VERSION)." }
 
         $resolvedRevision = (& git -C $env:FLUTTER_ROOT rev-parse "refs/tags/$($env:FLUTTER_VERSION)^{commit}").Trim()
@@ -113,13 +106,13 @@ runs:
           throw "Flutter $($env:FLUTTER_VERSION) resolved to $resolvedRevision; expected $($env:FLUTTER_REVISION)"
         }
 
-        & git -C $env:FLUTTER_ROOT checkout --detach "refs/tags/$($env:FLUTTER_VERSION)"
+        & git -C $env:FLUTTER_ROOT checkout --force --detach "refs/tags/$($env:FLUTTER_VERSION)"
         if ($LASTEXITCODE -ne 0) { throw 'Failed to check out the pinned Flutter source tag.' }
 
         $flutterBin = Join-Path $env:FLUTTER_ROOT 'bin'
         $flutterBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         & (Join-Path $flutterBin 'flutter.bat') --version
-        if ($LASTEXITCODE -ne 0) { throw 'Flutter Windows arm64 bootstrap failed.' }
+        if ($LASTEXITCODE -ne 0) { throw 'Flutter bootstrap failed.' }
 
     - name: Set up Rust
       uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
