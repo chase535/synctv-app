@@ -12,13 +12,9 @@ import 'package:synctv_app/src/generated/proto/source_config.pbenum.dart'
 import 'package:webview_flutter/webview_flutter.dart';
 
 const _desktopChromeUserAgent =
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-    'AppleWebKit/537.36 (KHTML, like Gecko) '
-    'Chrome/140.0.0.0 Safari/537.36';
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
 const _desktopSafariUserAgent =
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
-    'AppleWebKit/605.1.15 (KHTML, like Gecko) '
-    'Version/18.6 Safari/605.1.15';
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15';
 
 bool get providerWebSessionCaptureSupported =>
     Platform.isWindows ||
@@ -28,9 +24,15 @@ bool get providerWebSessionCaptureSupported =>
     Platform.isIOS;
 
 String? _embeddedUserAgent(ProviderWebSessionSpec spec) {
-  if (!spec.requestDesktopSiteOnMobile) return null;
-  if (Platform.isAndroid) return _desktopChromeUserAgent;
-  if (Platform.isIOS) return _desktopSafariUserAgent;
+  if (!spec.requestDesktopSiteOnMobile) {
+    return null;
+  }
+  if (Platform.isAndroid) {
+    return _desktopChromeUserAgent;
+  }
+  if (Platform.isIOS) {
+    return _desktopSafariUserAgent;
+  }
   return null;
 }
 
