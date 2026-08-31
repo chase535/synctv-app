@@ -62,13 +62,15 @@ Future<List<provider_common_service.WebSessionCookie>> _captureDesktop(
   Timer? timer;
   var latest = <provider_common_service.WebSessionCookie>[];
   var reading = false;
+  var lastObservedCookieCount = 0;
+  var lastMatchedCookieCount = 0;
 
   Future<void> snapshot() async {
     if (reading || webview == null) return;
     reading = true;
     try {
       final cookies = await webview.getAllCookies();
-      latest = [
+      final matched = [
         for (final cookie in cookies)
           if (providerWebSessionDomainAllowed(
             cookie.domain,
@@ -87,9 +89,45 @@ Future<List<provider_common_service.WebSessionCookie>> _captureDesktop(
                   : Int64(cookie.expires!.millisecondsSinceEpoch ~/ 1000),
             ),
       ];
-    } on Object {
+      lastObservedCookieCount = cookies.length;
+      lastMatchedCookieCount = matched.length;
+
+      // WebView2 can transiently return an empty cookie list while a page is
+      // navigating or while the native window is beginning to close. Never let
+      // that empty read erase a session snapshot captured after successful
+      // sign-in. A later non-empty snapshot still replaces the previous one so
+      // refreshed cookie values are retained.
+      if (matched.isNotEmpty) {
+        latest = matched;
+      }
+
+      assert(() {
+        final domains = cookies
+            .map((cookie) => normalizeProviderCookieDomain(cookie.domain))
+            .where((domain) => domain.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+        final names = matched.map((cookie) => cookie.name).toSet().toList()
+          ..sort();
+        debugPrint(
+          '${spec.label} WebSession cookie snapshot: '
+          'total=${cookies.length}, matched=${matched.length}, '
+          'domains=$domains, matchedNames=$names',
+        );
+        return true;
+      }());
+    } on Object catch (error) {
       // The window can close while a cookie read is in flight. Keep the last
-      // successful snapshot and never log cookie-bearing errors or values.
+      // successful snapshot. Log only the error type in debug builds because
+      // exception text from a platform channel must not be assumed cookie-free.
+      assert(() {
+        debugPrint(
+          '${spec.label} WebSession cookie snapshot failed: '
+          '${error.runtimeType}',
+        );
+        return true;
+      }());
     } finally {
       reading = false;
     }
@@ -104,9 +142,20 @@ Future<List<provider_common_service.WebSessionCookie>> _captureDesktop(
     );
     await webview.onClose;
     timer.cancel();
+
+    // Give an already-started cookie read a short opportunity to finish. A
+    // final read cannot safely be started after onClose because the native
+    // WebView may already have been destroyed.
+    final readDeadline = DateTime.now().add(const Duration(seconds: 1));
+    while (reading && DateTime.now().isBefore(readDeadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 25));
+    }
+
     if (latest.isEmpty) {
       throw StateError(
-        'No ${spec.label} session cookies were captured. '
+        'No ${spec.label} session cookies were captured '
+        '(WebView cookies: $lastObservedCookieCount, '
+        'matching ${spec.allowedDomain}: $lastMatchedCookieCount). '
         'Sign in on the official page, then close the login window.',
       );
     }
