@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: ["main"]
   pull_request:
-    branches: ["**"]
+    branches: ["main"]
   workflow_dispatch:
   workflow_call:
     inputs:
@@ -25,7 +25,6 @@ concurrency:
 
 env:
   FLUTTER_VERSION: "3.44.8"
-  NODE_VERSION: "24"
   PROTOC_VERSION: "35.1"
   RUST_VERSION: "1.97.1"
 
@@ -62,7 +61,6 @@ jobs:
         run: |
           test "$(protoc --version)" = "libprotoc $PROTOC_VERSION"
           dart pub global activate protoc_plugin 25.0.0
-
       - name: Check Dart formatting
         run: dart format --output=none --set-exit-if-changed lib test tool packages
 
@@ -70,7 +68,6 @@ jobs:
         run: |
           find tool -type f -name '*.sh' -print0 | xargs -0 bash -n
           find tool -type f -name '*.sh' -print0 | xargs -0 shellcheck
-
       - name: Check GitHub Actions workflows
         uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
         with:
@@ -94,15 +91,22 @@ jobs:
           flutter gen-l10n
           bash tool/generate_proto.sh
           git diff --exit-code -- lib/l10n lib/src/generated
-
   android-native:
-    name: Android native release
+    name: Signed Android release APK
     if: >-
       inputs.native-build-mode != 'skip' &&
       (github.event_name != 'push' ||
-      github.ref_name == github.event.repository.default_branch)
+      github.ref_name == github.event.repository.default_branch) &&
+      (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
+    env:
+      SYNCTV_ANDROID_KEYSTORE_BASE64: ${{ secrets.SYNCTV_ANDROID_KEYSTORE_BASE64 }}
+      SYNCTV_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.SYNCTV_ANDROID_KEYSTORE_PASSWORD }}
+      SYNCTV_ANDROID_KEY_ALIAS: ${{ secrets.SYNCTV_ANDROID_KEY_ALIAS }}
+      SYNCTV_ANDROID_KEY_PASSWORD: ${{ secrets.SYNCTV_ANDROID_KEY_PASSWORD }}
+      SYNCTV_BUILT_IN_SERVER_URL: ${{ secrets.SYNCTV_BUILT_IN_SERVER_URL }}
 
     steps:
       - name: Check out source
@@ -121,32 +125,87 @@ jobs:
         uses: ./.github/actions/setup-build
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-architecture: x64
           rust-version: ${{ env.RUST_VERSION }}
-          rust-targets: aarch64-linux-android
+          rust-targets: armv7-linux-androideabi,aarch64-linux-android,x86_64-linux-android
 
+      - name: Prepare Android release signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${SYNCTV_ANDROID_KEYSTORE_BASE64:?Missing SYNCTV_ANDROID_KEYSTORE_BASE64 repository secret}"
+          : "${SYNCTV_ANDROID_KEYSTORE_PASSWORD:?Missing SYNCTV_ANDROID_KEYSTORE_PASSWORD repository secret}"
+          : "${SYNCTV_ANDROID_KEY_ALIAS:?Missing SYNCTV_ANDROID_KEY_ALIAS repository secret}"
+          : "${SYNCTV_ANDROID_KEY_PASSWORD:?Missing SYNCTV_ANDROID_KEY_PASSWORD repository secret}"
+          : "${SYNCTV_BUILT_IN_SERVER_URL:?Missing SYNCTV_BUILT_IN_SERVER_URL repository secret}"
+          keystore_path="$RUNNER_TEMP/synctv-release.jks"
+          printf '%s' "$SYNCTV_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          test -s "$keystore_path"
+          chmod 600 "$keystore_path"
+          keytool -list \
+            -keystore "$keystore_path" \
+            -storepass "$SYNCTV_ANDROID_KEYSTORE_PASSWORD" \
+            -alias "$SYNCTV_ANDROID_KEY_ALIAS" >/dev/null
+          echo "SYNCTV_ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
       - name: Configure Android release plugins
         # Work around flutter/flutter#169336 for --no-pub release builds.
         run: flutter build apk --config-only
 
-      - name: Build Android release
-        run: >-
-          flutter build apk
-          --release
-          --no-pub
-          --target-platform android-arm64
-          --split-debug-info build/symbols/ci-android-arm64
-
-      - name: Verify Android manifest and launcher icon
-        run: bash tool/ci/verify_android_artifact.sh build/app/outputs/flutter-apk/app-release.apk
+      - name: Build signed universal Android release APK
+        shell: bash
+        run: |
+          flutter build apk \
+            --release \
+            --no-pub \
+            --target-platform android-arm,android-arm64,android-x64 \
+            --dart-define="SYNCTV_BUILT_IN_SERVER_URL=$SYNCTV_BUILT_IN_SERVER_URL" \
+            --split-debug-info build/symbols/ci-android
+      - name: Verify Android release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="build/app/outputs/flutter-apk/app-release.apk"
+          bash tool/ci/verify_android_artifact.sh "$apk"
+          for abi in armeabi-v7a arm64-v8a x86_64; do
+            if ! unzip -Z1 "$apk" | grep -Fx "lib/$abi/libapp.so" >/dev/null; then
+              echo "Missing Flutter runtime for Android ABI: $abi" >&2
+              exit 1
+            fi
+          done
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -n 1)"
+          test -n "$apksigner"
+          "$apksigner" verify --verbose "$apk"
+      - name: Package Android release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact_version="$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml | head -n 1)"
+          artifact_version="${artifact_version%$'\r'}"
+          test -n "$artifact_version"
+          install -d dist
+          install -m 0644 \
+            build/app/outputs/flutter-apk/app-release.apk \
+            "dist/SyncTV-$artifact_version-android-universal-signed.apk"
+      - name: Upload Android release APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-android
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0
 
   linux-native:
     name: Linux ${{ matrix.architecture }} native release
     if: >-
       inputs.native-build-mode != 'skip' &&
       (github.event_name != 'push' ||
-      github.ref_name == github.event.repository.default_branch)
+      github.ref_name == github.event.repository.default_branch) &&
+      (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 50
+    env:
+      SYNCTV_BUILT_IN_SERVER_URL: ${{ secrets.SYNCTV_BUILT_IN_SERVER_URL }}
     strategy:
       fail-fast: false
       matrix:
@@ -180,25 +239,44 @@ jobs:
           rust-targets: ${{ matrix.rust-target }}
 
       - name: Build and package Linux release
+        shell: bash
         run: |
+          set -euo pipefail
+          : "${SYNCTV_BUILT_IN_SERVER_URL:?Missing SYNCTV_BUILT_IN_SERVER_URL repository secret}"
+          artifact_version="$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml | head -n 1)"
+          artifact_version="${artifact_version%$'\r'}"
+          test -n "$artifact_version"
           flutter build linux \
             --release \
             --no-pub \
             --target-platform "${{ matrix.flutter-target }}" \
+            --dart-define="SYNCTV_BUILT_IN_SERVER_URL=$SYNCTV_BUILT_IN_SERVER_URL" \
             --split-debug-info "build/symbols/linux-${{ matrix.architecture }}"
           bash tool/ci/strip_linux_release.sh
           bash tool/ci/package_release.sh linux \
-            "${{ matrix.architecture }}" "0.0.0+0-ci" dist
-          test -f "dist/SyncTV-0.0.0+0-ci-linux-${{ matrix.architecture }}.deb"
+            "${{ matrix.architecture }}" "$artifact_version" dist
+          test -f "dist/SyncTV-$artifact_version-linux-${{ matrix.architecture }}.deb"
+          test -f "dist/SyncTV-$artifact_version-linux-${{ matrix.architecture }}.tar.gz"
+      - name: Upload Linux release artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-linux-${{ matrix.architecture }}
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0
 
   windows-native:
     name: Windows x64 native release
     if: >-
       inputs.native-build-mode != 'skip' &&
       (github.event_name != 'push' ||
-      github.ref_name == github.event.repository.default_branch)
+      github.ref_name == github.event.repository.default_branch) &&
+      (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: windows-latest
     timeout-minutes: 60
+    env:
+      SYNCTV_BUILT_IN_SERVER_URL: ${{ secrets.SYNCTV_BUILT_IN_SERVER_URL }}
 
     steps:
       - name: Enable long paths
@@ -221,67 +299,31 @@ jobs:
       - name: Build and package Windows release
         shell: pwsh
         run: |
+          if ([string]::IsNullOrWhiteSpace($env:SYNCTV_BUILT_IN_SERVER_URL)) {
+            throw 'Missing SYNCTV_BUILT_IN_SERVER_URL repository secret'
+          }
+          $versionLine = Get-Content pubspec.yaml |
+            Where-Object { $_ -match '^version:\s*' } |
+            Select-Object -First 1
+          if ([string]::IsNullOrWhiteSpace($versionLine)) {
+            throw 'pubspec.yaml does not contain a version'
+          }
+          $artifactVersion = ($versionLine -replace '^version:\s*', '').Trim()
           flutter build windows `
             --release `
             --no-pub `
+            --dart-define "SYNCTV_BUILT_IN_SERVER_URL=$env:SYNCTV_BUILT_IN_SERVER_URL" `
             --split-debug-info build/symbols/windows-x64
           ./tool/ci/verify_windows_architecture.ps1 -Architecture x64
           ./tool/ci/package_release.ps1 `
-            -Version "0.0.0+0-ci" `
+            -Version $artifactVersion `
             -Architecture x64 `
             -OutputDirectory dist `
             -RepositoryUrl "${{ github.server_url }}/${{ github.repository }}"
-
-  apple-native:
-    name: Apple native releases
-    if: >-
-      inputs.native-build-mode != 'skip' &&
-      (github.event_name != 'push' ||
-      github.ref_name == github.event.repository.default_branch)
-    runs-on: macos-26
-    timeout-minutes: 75
-
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Upload Windows release artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          persist-credentials: false
-
-      - name: Set up build toolchain
-        uses: ./.github/actions/setup-build
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          flutter-architecture: arm64
-          rust-version: ${{ env.RUST_VERSION }}
-          rust-targets: aarch64-apple-darwin,x86_64-apple-darwin,aarch64-apple-ios
-
-      - name: Set up Node.js for macOS packaging
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install macOS packaging dependencies
-        run: npm ci --prefix tool/ci/macos-dmg
-
-      - name: Build and package macOS release
-        run: |
-          flutter build macos \
-            --release \
-            --no-pub \
-            --dart-define SYNCTV_NATIVE_APPLE_SIGN_IN=false \
-            --split-debug-info build/symbols/macos-universal
-          bash tool/ci/verify_macos_architecture.sh \
-            build/macos/Build/Products/Release/SyncTV.app universal
-          bash tool/ci/package_release.sh macos universal "0.0.0+0-ci" dist/macos
-
-      - name: Build and package unsigned iOS release
-        run: |
-          bash tool/ci/verify_apple_app_icon.sh
-          flutter build ios \
-            --release \
-            --no-pub \
-            --no-codesign \
-            --split-debug-info build/symbols/ios-arm64
-          bash tool/ci/verify_apple_private_apis.sh \
-            build/ios/iphoneos/Runner.app
-          bash tool/ci/package_release.sh ios arm64 "0.0.0+0-ci" dist/ios
+          name: release-windows-x64
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0
