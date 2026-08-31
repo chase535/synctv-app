@@ -90,14 +90,11 @@ Future<List<provider_common_service.WebSessionCookie>> _captureDesktop(
       final cookies = await webview.getAllCookies();
       final matched = [
         for (final cookie in cookies)
-          if (providerWebSessionDomainAllowed(
-            cookie.domain,
-            spec.allowedDomain,
-          ))
+          if (providerWebSessionDomainAllowedForSpec(cookie.domain, spec))
             provider_common_service.WebSessionCookie(
               name: cookie.name,
               value: cookie.value,
-              domain: cookie.domain,
+              domain: normalizeProviderCookieDomain(cookie.domain),
               path: cookie.path,
               secure: cookie.secure,
               httpOnly: cookie.httpOnly,
@@ -174,7 +171,8 @@ Future<List<provider_common_service.WebSessionCookie>> _captureDesktop(
       throw StateError(
         'No ${spec.label} session cookies were captured '
         '(WebView cookies: $lastObservedCookieCount, '
-        'matching ${spec.allowedDomain}: $lastMatchedCookieCount). '
+        'matching ${spec.allowedDomains.join(', ')}: '
+        '$lastMatchedCookieCount). '
         'Sign in on the official page, then close the login window.',
       );
     }
@@ -250,23 +248,51 @@ Future<List<provider_common_service.WebSessionCookie>> _captureEmbedded(
   );
 
   if (accepted != true) return const [];
-  final cookies = await cookieManager.getCookies(domain: spec.startUri);
-  final result = [
-    for (final cookie in cookies)
-      if (providerWebSessionDomainAllowed(cookie.domain, spec.allowedDomain))
+
+  // Android's webview_flutter CookieManager returns cookie.domain as the full
+  // lookup URL rather than as a cookie Domain attribute. Query each explicitly
+  // allowed provider URL and normalize the reported value back to a hostname
+  // before it crosses the client/server boundary.
+  final result = <provider_common_service.WebSessionCookie>[];
+  final seen = <String>{};
+  final observedCounts = <String, int>{};
+  for (final lookupUri in spec.effectiveCookieLookupUris) {
+    final cookies = await cookieManager.getCookies(domain: lookupUri);
+    observedCounts[lookupUri.host] = cookies.length;
+    for (final cookie in cookies) {
+      final reportedDomain = normalizeProviderCookieDomain(cookie.domain);
+      final domain = reportedDomain.isEmpty
+          ? lookupUri.host.toLowerCase()
+          : reportedDomain;
+      if (!providerWebSessionDomainAllowedForSpec(domain, spec)) {
+        continue;
+      }
+      final path = cookie.path.isEmpty ? '/' : cookie.path;
+      final identity = '$domain\n$path\n${cookie.name}';
+      if (!seen.add(identity)) {
+        continue;
+      }
+      result.add(
         provider_common_service.WebSessionCookie(
           name: cookie.name,
           value: cookie.value,
-          domain: cookie.domain,
-          path: cookie.path,
-          secure: true,
+          domain: domain,
+          path: path,
+          secure: lookupUri.scheme.toLowerCase() == 'https',
           httpOnly: false,
           sessionOnly: true,
         ),
-  ];
+      );
+    }
+  }
+
   if (result.isEmpty) {
+    final observations = observedCounts.entries
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join(', ');
     throw StateError(
-      'No ${spec.label} session cookies were captured. '
+      'No ${spec.label} session cookies were captured '
+      '(CookieManager: ${observations.isEmpty ? 'no lookups' : observations}). '
       'Complete sign-in before choosing “Use this session”.',
     );
   }
