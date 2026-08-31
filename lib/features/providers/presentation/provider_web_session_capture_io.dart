@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:desktop_webview_window/desktop_webview_window.dart';
@@ -51,6 +52,68 @@ captureProviderWebSession(
   throw UnsupportedError('Provider WebSession capture is unavailable here.');
 }
 
+Future<List<provider_common_service.WebSessionCookie>>
+_captureVisibleDesktopCookies(
+  Webview webview,
+  ProviderWebSessionSpec spec,
+) async {
+  final raw = await webview.evaluateJavaScript(
+    'JSON.stringify({href: window.location.href, cookie: document.cookie})',
+  );
+  if (raw == null || raw.trim().isEmpty) {
+    return const [];
+  }
+
+  dynamic decoded = jsonDecode(raw);
+  if (decoded is String) {
+    decoded = jsonDecode(decoded);
+  }
+  if (decoded is! Map) {
+    return const [];
+  }
+
+  final href = decoded['href'];
+  final cookieHeader = decoded['cookie'];
+  if (href is! String ||
+      cookieHeader is! String ||
+      cookieHeader.trim().isEmpty) {
+    return const [];
+  }
+
+  final uri = Uri.tryParse(href);
+  if (uri == null || !providerWebSessionUrlAllowed(uri, spec)) {
+    return const [];
+  }
+
+  final domain = uri.host.toLowerCase();
+  final result = <provider_common_service.WebSessionCookie>[];
+  final seen = <String>{};
+  for (final segment in cookieHeader.split(';')) {
+    final cookie = segment.trim();
+    final separator = cookie.indexOf('=');
+    if (separator <= 0) {
+      continue;
+    }
+    final name = cookie.substring(0, separator).trim();
+    final value = cookie.substring(separator + 1);
+    if (name.isEmpty || !seen.add(name)) {
+      continue;
+    }
+    result.add(
+      provider_common_service.WebSessionCookie(
+        name: name,
+        value: value,
+        domain: domain,
+        path: '/',
+        secure: uri.scheme.toLowerCase() == 'https',
+        httpOnly: false,
+        sessionOnly: true,
+      ),
+    );
+  }
+  return result;
+}
+
 Future<List<provider_common_service.WebSessionCookie>> _captureDesktop(
   ProviderWebSessionSpec spec,
 ) async {
@@ -81,66 +144,83 @@ Future<List<provider_common_service.WebSessionCookie>> _captureDesktop(
   var latest = <provider_common_service.WebSessionCookie>[];
   var reading = false;
   var lastObservedCookieCount = 0;
+  var lastVisibleCookieCount = 0;
   var lastMatchedCookieCount = 0;
+  String? lastNativeCookieErrorType;
+  String? lastVisibleCookieErrorType;
 
   Future<void> snapshot() async {
     if (reading || webview == null) return;
     reading = true;
     try {
-      final cookies = await webview.getAllCookies();
-      final matched = [
-        for (final cookie in cookies)
-          if (providerWebSessionDomainAllowedForSpec(cookie.domain, spec))
-            provider_common_service.WebSessionCookie(
-              name: cookie.name,
-              value: cookie.value,
-              domain: normalizeProviderCookieDomain(cookie.domain),
-              path: cookie.path,
-              secure: cookie.secure,
-              httpOnly: cookie.httpOnly,
-              sessionOnly: cookie.sessionOnly,
-              expiresAt: cookie.expires == null
-                  ? null
-                  : Int64(cookie.expires!.millisecondsSinceEpoch ~/ 1000),
-            ),
-      ];
-      lastObservedCookieCount = cookies.length;
-      lastMatchedCookieCount = matched.length;
+      var matched = <provider_common_service.WebSessionCookie>[];
+      var observedDomains = <String>[];
+
+      try {
+        final cookies = await webview.getAllCookies();
+        lastNativeCookieErrorType = null;
+        lastObservedCookieCount = cookies.length;
+        observedDomains = cookies
+            .map((cookie) => normalizeProviderCookieDomain(cookie.domain))
+            .where((domain) => domain.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+        matched = [
+          for (final cookie in cookies)
+            if (providerWebSessionDomainAllowedForSpec(cookie.domain, spec))
+              provider_common_service.WebSessionCookie(
+                name: cookie.name,
+                value: cookie.value,
+                domain: normalizeProviderCookieDomain(cookie.domain),
+                path: cookie.path,
+                secure: cookie.secure,
+                httpOnly: cookie.httpOnly,
+                sessionOnly: cookie.sessionOnly,
+                expiresAt: cookie.expires == null
+                    ? null
+                    : Int64(cookie.expires!.millisecondsSinceEpoch ~/ 1000),
+              ),
+        ];
+      } on Object catch (error) {
+        lastNativeCookieErrorType = error.runtimeType.toString();
+      }
+
+      var captured = matched;
+      if (captured.isEmpty && Platform.isWindows) {
+        try {
+          final visible = await _captureVisibleDesktopCookies(webview, spec);
+          lastVisibleCookieErrorType = null;
+          lastVisibleCookieCount = visible.length;
+          if (visible.isNotEmpty) {
+            captured = visible;
+          }
+        } on Object catch (error) {
+          lastVisibleCookieErrorType = error.runtimeType.toString();
+        }
+      }
+
+      lastMatchedCookieCount = captured.length;
 
       // WebView2 can transiently return an empty cookie list while a page is
       // navigating or while the native window is beginning to close. Never let
       // that empty read erase a session snapshot captured after successful
       // sign-in. A later non-empty snapshot still replaces the previous one so
       // refreshed cookie values are retained.
-      if (matched.isNotEmpty) {
-        latest = matched;
+      if (captured.isNotEmpty) {
+        latest = captured;
       }
 
       assert(() {
-        final domains =
-            cookies
-                .map((cookie) => normalizeProviderCookieDomain(cookie.domain))
-                .where((domain) => domain.isNotEmpty)
-                .toSet()
-                .toList()
-              ..sort();
-        final names = matched.map((cookie) => cookie.name).toSet().toList()
+        final names = captured.map((cookie) => cookie.name).toSet().toList()
           ..sort();
         debugPrint(
           '${spec.label} WebSession cookie snapshot: '
-          'total=${cookies.length}, matched=${matched.length}, '
-          'domains=$domains, matchedNames=$names',
-        );
-        return true;
-      }());
-    } on Object catch (error) {
-      // The window can close while a cookie read is in flight. Keep the last
-      // successful snapshot. Log only the error type in debug builds because
-      // exception text from a platform channel must not be assumed cookie-free.
-      assert(() {
-        debugPrint(
-          '${spec.label} WebSession cookie snapshot failed: '
-          '${error.runtimeType}',
+          'native=$lastObservedCookieCount, '
+          'visible=$lastVisibleCookieCount, matched=${captured.length}, '
+          'domains=$observedDomains, matchedNames=$names, '
+          'nativeError=${lastNativeCookieErrorType ?? 'none'}, '
+          'visibleError=${lastVisibleCookieErrorType ?? 'none'}',
         );
         return true;
       }());
@@ -168,11 +248,18 @@ Future<List<provider_common_service.WebSessionCookie>> _captureDesktop(
     }
 
     if (latest.isEmpty) {
+      final nativeRead = lastNativeCookieErrorType == null
+          ? ''
+          : ', nativeRead=$lastNativeCookieErrorType';
+      final visibleRead = lastVisibleCookieErrorType == null
+          ? ''
+          : ', documentRead=$lastVisibleCookieErrorType';
       throw StateError(
         'No ${spec.label} session cookies were captured '
         '(WebView cookies: $lastObservedCookieCount, '
+        'document cookies: $lastVisibleCookieCount, '
         'matching ${spec.allowedDomains.join(', ')}: '
-        '$lastMatchedCookieCount). '
+        '$lastMatchedCookieCount$nativeRead$visibleRead). '
         'Sign in on the official page, then close the login window.',
       );
     }
