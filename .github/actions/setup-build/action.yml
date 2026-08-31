@@ -129,3 +129,8 @@ runs:
     - name: Restore Dart dependencies
       shell: bash
       run: flutter pub get --enforce-lockfile
+
+    - name: Patch Windows arm64 native dependencies
+      if: runner.os == 'Windows' && inputs.flutter-architecture == 'arm64'
+      shell: pwsh
+      run: ./tool/ci/prepare_windows_arm64_dependencies.ps1
