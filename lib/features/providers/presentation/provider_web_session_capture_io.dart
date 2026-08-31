@@ -160,12 +160,13 @@ Future<List<provider_common_service.WebSessionCookie>> _captureDesktop(
         final cookies = await webview.getAllCookies();
         lastNativeCookieErrorType = null;
         lastObservedCookieCount = cookies.length;
-        observedDomains = cookies
-            .map((cookie) => normalizeProviderCookieDomain(cookie.domain))
-            .where((domain) => domain.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
+        observedDomains =
+            cookies
+                .map((cookie) => normalizeProviderCookieDomain(cookie.domain))
+                .where((domain) => domain.isNotEmpty)
+                .toSet()
+                .toList()
+              ..sort();
         matched = [
           for (final cookie in cookies)
             if (providerWebSessionDomainAllowedForSpec(cookie.domain, spec))
