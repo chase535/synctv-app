@@ -11,12 +11,28 @@ import 'package:synctv_app/src/generated/proto/source_config.pbenum.dart'
     as source_enum;
 import 'package:webview_flutter/webview_flutter.dart';
 
+const _desktopChromeUserAgent =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+    'AppleWebKit/537.36 (KHTML, like Gecko) '
+    'Chrome/140.0.0.0 Safari/537.36';
+const _desktopSafariUserAgent =
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
+    'AppleWebKit/605.1.15 (KHTML, like Gecko) '
+    'Version/18.6 Safari/605.1.15';
+
 bool get providerWebSessionCaptureSupported =>
     Platform.isWindows ||
     Platform.isLinux ||
     Platform.isMacOS ||
     Platform.isAndroid ||
     Platform.isIOS;
+
+String? _embeddedUserAgent(ProviderWebSessionSpec spec) {
+  if (!spec.requestDesktopSiteOnMobile) return null;
+  if (Platform.isAndroid) return _desktopChromeUserAgent;
+  if (Platform.isIOS) return _desktopSafariUserAgent;
+  return null;
+}
 
 Future<List<provider_common_service.WebSessionCookie>>
 captureProviderWebSession(
@@ -188,9 +204,17 @@ Future<List<provider_common_service.WebSessionCookie>> _captureEmbedded(
   ProviderWebSessionSpec spec,
 ) async {
   final cookieManager = WebViewCookieManager();
-  final controller = WebViewController()
-    ..setJavaScriptMode(JavaScriptMode.unrestricted)
-    ..loadRequest(spec.startUri);
+  final controller = WebViewController();
+  await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+
+  // iQiyi serves a restricted mobile-web experience when Android/iOS WebView
+  // identifies itself as a phone. Request the normal desktop website before
+  // the very first navigation so the server never sees the mobile user agent.
+  final userAgent = _embeddedUserAgent(spec);
+  if (userAgent != null) {
+    await controller.setUserAgent(userAgent);
+  }
+  await controller.loadRequest(spec.startUri);
 
   final accepted = await showDialog<bool>(
     context: context,
