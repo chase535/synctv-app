@@ -9,18 +9,20 @@ class ProviderWebSessionSpec {
     required this.label,
     required this.startUri,
     required this.allowedDomain,
+    this.mobileStartUri,
     this.additionalAllowedDomains = const <String>[],
     this.cookieLookupUris = const <Uri>[],
-    this.requestDesktopSiteOnMobile = false,
   });
 
   final source_enum.SourceProvider provider;
   final String label;
   final Uri startUri;
+  final Uri? mobileStartUri;
   final String allowedDomain;
   final List<String> additionalAllowedDomains;
   final List<Uri> cookieLookupUris;
-  final bool requestDesktopSiteOnMobile;
+
+  Uri get effectiveMobileStartUri => mobileStartUri ?? startUri;
 
   List<String> get allowedDomains => <String>[
     allowedDomain,
@@ -38,16 +40,14 @@ ProviderWebSessionSpec providerWebSessionSpec(
     provider: provider,
     label: 'iQiyi',
     startUri: Uri.parse('https://www.iqiyi.com/'),
+    mobileStartUri: Uri.parse('https://m.iqiyi.com/'),
     allowedDomain: 'iqiyi.com',
     additionalAllowedDomains: const <String>['qiyi.com'],
     cookieLookupUris: <Uri>[
+      Uri.parse('https://m.iqiyi.com/'),
       Uri.parse('https://www.iqiyi.com/'),
       Uri.parse('https://www.qiyi.com/'),
     ],
-    // The embedded window is an authentication surface only. Keep the native
-    // Android/iOS WebView user agent instead of pretending the phone is a
-    // desktop browser; playback discovery happens on the server.
-    requestDesktopSiteOnMobile: false,
   ),
   source_enum.SourceProvider.SOURCE_PROVIDER_TENCENT_VIDEO =>
     ProviderWebSessionSpec(
