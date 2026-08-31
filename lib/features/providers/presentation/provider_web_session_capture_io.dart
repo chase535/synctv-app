@@ -218,6 +218,9 @@ Future<List<provider_common_service.WebSessionCookie>> _captureEmbedded(
     await controller.setUserAgent(userAgent);
   }
   await controller.loadRequest(spec.startUri);
+  if (!context.mounted) {
+    return const [];
+  }
 
   final accepted = await showDialog<bool>(
     context: context,
